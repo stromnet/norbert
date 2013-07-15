@@ -32,7 +32,7 @@ class MessageExecutorSpec extends Specification with Mockito with WaitFor with S
   val filters = new MutableList[Filter]
   filters ++= (List(filter1, filter2))
 
-  val messageExecutor = new ThreadPoolMessageExecutor("service",
+  val messageExecutor = new ThreadPoolMessageExecutor(None, "service",
     messageHandlerRegistry,
     filters,
     1000L,
@@ -64,7 +64,7 @@ class MessageExecutorSpec extends Specification with Mockito with WaitFor with S
     "find the handler associated with the specified message" in {
       messageHandlerRegistry.handlerFor(request) returns returnHandler _
 
-      messageExecutor.executeMessage(request, (either: Either[Exception, Ping]) => null, None)
+      messageExecutor.executeMessage(request, Some((either: Either[Exception, Ping]) => null:Unit), None)
 
       waitFor(50.ms)
 
@@ -79,7 +79,7 @@ class MessageExecutorSpec extends Specification with Mockito with WaitFor with S
       }
       messageHandlerRegistry.handlerFor(request) returns h _
 
-      messageExecutor.executeMessage(request, (either: Either[Exception, Ping]) => null, None)
+      messageExecutor.executeMessage(request, Some((either: Either[Exception, Ping]) => null:Unit), None)
 
       wasCalled must eventually(beTrue)
     }
@@ -88,7 +88,7 @@ class MessageExecutorSpec extends Specification with Mockito with WaitFor with S
 //      messageHandlerRegistry.validResponseFor(request, request) returns true
       messageHandlerRegistry.handlerFor(request) returns returnHandler _
 
-      messageExecutor.executeMessage(request, handler _)
+      messageExecutor.executeMessage(request, Some(handler _))
 
       handlerCalled must eventually(beTrue)
       either.isRight must beTrue
@@ -99,7 +99,7 @@ class MessageExecutorSpec extends Specification with Mockito with WaitFor with S
 //      messageHandlerRegistry.validResponseFor(request, null) returns true
       messageHandlerRegistry.handlerFor(request) returns nullHandler _
 
-      messageExecutor.executeMessage(request, handler _)
+      messageExecutor.executeMessage(request, Some(handler _))
 
       handlerCalled must eventually(beFalse)
     }
@@ -107,7 +107,7 @@ class MessageExecutorSpec extends Specification with Mockito with WaitFor with S
     "execute the responseHandler with Left(ex) if the handler throws an exception" in {
       messageHandlerRegistry.handlerFor(request) returns throwsHandler _
 
-      messageExecutor.executeMessage(request, handler _)
+      messageExecutor.executeMessage(request, Some(handler _))
 
       handlerCalled must eventually(beTrue)
       either.isLeft must beTrue
@@ -116,7 +116,7 @@ class MessageExecutorSpec extends Specification with Mockito with WaitFor with S
     "not execute the responseHandler if the message is not registered" in {
       messageHandlerRegistry.handlerFor(request) throws new InvalidMessageException("")
 
-      messageExecutor.executeMessage(request, handler _)
+      messageExecutor.executeMessage(request, Some(handler _))
 
       waitFor(5.ms)
 
@@ -127,7 +127,7 @@ class MessageExecutorSpec extends Specification with Mockito with WaitFor with S
 
     "filters are executed when message is valid" in {
       messageHandlerRegistry.handlerFor(request) returns returnHandler _
-      messageExecutor.executeMessage(request, (either: Either[Exception, Ping]) => null, Some(requestContext))
+      messageExecutor.executeMessage(request, Some((either: Either[Exception, Ping]) => null:Unit), Some(requestContext))
 
       waitFor(5.ms)
       there was one(filter1).onRequest(request, requestContext) then one(filter2).onRequest(request, requestContext) orderedBy(filter1, filter2)
@@ -136,7 +136,7 @@ class MessageExecutorSpec extends Specification with Mockito with WaitFor with S
 
     "filters are not executed when handler return null" in {
       messageHandlerRegistry.handlerFor(request) returns nullHandler _
-      messageExecutor.executeMessage(request, handler _, Some(requestContext))
+      messageExecutor.executeMessage(request, Some(handler _), Some(requestContext))
 
       waitFor(5.ms)
       there was one(filter1).onRequest(request, requestContext) then one(filter2).onRequest(request, requestContext) orderedBy(filter1, filter2)
@@ -145,7 +145,7 @@ class MessageExecutorSpec extends Specification with Mockito with WaitFor with S
 
     "filters are executed when handler throws an exception" in {
       messageHandlerRegistry.handlerFor(request) returns throwsHandler _
-      messageExecutor.executeMessage(request, handler _, Some(requestContext))
+      messageExecutor.executeMessage(request, Some(handler _), Some(requestContext))
       
       waitFor(5.ms)
       there was one(filter1).onRequest(request, requestContext) then one(filter2).onRequest(request, requestContext) orderedBy(filter1, filter2)
@@ -157,7 +157,7 @@ class MessageExecutorSpec extends Specification with Mockito with WaitFor with S
     "filters are executed when message is not registered" in {
       val ie = new InvalidMessageException("")
       messageHandlerRegistry.handlerFor(request) throws ie
-      messageExecutor.executeMessage(request, handler _, Some(requestContext))
+      messageExecutor.executeMessage(request, Some(handler _), Some(requestContext))
 
       waitFor(5.ms)
       there was one(filter1).onRequest(request, requestContext) then one(filter2).onRequest(request, requestContext) orderedBy(filter1, filter2)

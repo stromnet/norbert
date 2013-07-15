@@ -100,8 +100,10 @@ class ClientChannelHandler(clientName: Option[String],
     val request = e.getMessage.asInstanceOf[Request[_, _]]
     log.debug("Writing request: %s".format(request))
 
-    requestMap.put(request.id, request)
-    stats.beginRequest(request.node, request.id)
+    if(!request.callback.isEmpty) {
+      requestMap.put(request.id, request)
+      stats.beginRequest(request.node, request.id)
+    }
 
     val message = NorbertProtos.NorbertMessage.newBuilder
     message.setRequestIdMsb(request.id.getMostSignificantBits)

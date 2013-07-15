@@ -46,9 +46,14 @@ package object norbertutils {
     val oldValue = map.get(key)
     if(oldValue == null) {
       map.synchronized {
-        val newValue = fn(key)
-        map.putIfAbsent(key, newValue)
-        map.get(key)
+        val oldValue2 = map.get(key)
+        if(oldValue2 == null) {
+          val newValue = fn(key)
+          map.putIfAbsent(key, newValue)
+          map.get(key)
+        } else {
+          oldValue2
+        }
       }
     } else {
       oldValue

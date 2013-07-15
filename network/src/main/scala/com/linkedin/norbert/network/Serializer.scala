@@ -23,6 +23,13 @@ import java.io.{OutputStream, InputStream}
  */
 trait Serializer[RequestMsg, ResponseMsg] extends InputSerializer[RequestMsg, ResponseMsg] with OutputSerializer[RequestMsg, ResponseMsg]
 
+// When there is no response message
+trait OneWaySerializer[RequestMsg] extends InputSerializer[RequestMsg, Unit] with OutputSerializer[RequestMsg, Unit] {
+  override def responseName: String = null
+  override def responseToBytes(response: Unit): Array[Byte] = null
+  override def responseFromBytes(bytes: Array[Byte]): Unit = null
+}
+
 // Split up for correct variance
 trait OutputSerializer[-RequestMsg, -ResponseMsg] {
   def responseName: String

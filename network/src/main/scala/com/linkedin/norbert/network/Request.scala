@@ -22,14 +22,14 @@ import scala.collection.mutable.Map
 object Request {
   def apply[RequestMsg, ResponseMsg](message: RequestMsg, node: Node,
                                      inputSerializer: InputSerializer[RequestMsg, ResponseMsg], outputSerializer: OutputSerializer[RequestMsg, ResponseMsg],
-                                     callback: Either[Throwable, ResponseMsg] => Unit, retryAttempt: Int = 0): Request[RequestMsg, ResponseMsg] = {
+                                     callback: Option[Either[Throwable, ResponseMsg] => Unit], retryAttempt: Int = 0): Request[RequestMsg, ResponseMsg] = {
     new Request(message, node, inputSerializer, outputSerializer, callback, retryAttempt)
   }
 }
 
 class Request[RequestMsg, ResponseMsg](val message: RequestMsg, val node: Node,
                                        val inputSerializer: InputSerializer[RequestMsg, ResponseMsg], val outputSerializer: OutputSerializer[RequestMsg, ResponseMsg],
-                                       val callback: Either[Throwable, ResponseMsg] => Unit, val retryAttempt: Int = 0) {
+                                       val callback: Option[Either[Throwable, ResponseMsg] => Unit], val retryAttempt: Int = 0) {
   val id = UUID.randomUUID
   val timestamp = System.currentTimeMillis
   val headers : Map[String, String] = Map.empty[String, String]
@@ -43,11 +43,11 @@ class Request[RequestMsg, ResponseMsg](val message: RequestMsg, val node: Node,
   def addHeader(key: String, value: String) = headers += (key -> value)
 
   def onFailure(exception: Throwable) {
-    callback(Left(exception))
+    if(!callback.isEmpty) callback.get(Left(exception))
   }
 
   def onSuccess(bytes: Array[Byte]) {
-    callback(try {
+    if(!callback.isEmpty) callback.get(try {
       Right(inputSerializer.responseFromBytes(bytes))
     } catch {
       case ex: Exception => Left(new ClusterException("Exception while deserializing response", ex))
@@ -65,7 +65,7 @@ object PartitionedRequest {
 
   def apply[PartitionedId, RequestMsg, ResponseMsg](message: RequestMsg, node: Node, ids: Set[PartitionedId], requestBuilder: (Node, Set[PartitionedId]) => RequestMsg,
                                                     inputSerializer: InputSerializer[RequestMsg, ResponseMsg], outputSerializer: OutputSerializer[RequestMsg, ResponseMsg],
-                                                    callback: Either[Throwable, ResponseMsg] => Unit, retryAttempt: Int = 0,
+                                                    callback: Option[Either[Throwable, ResponseMsg] => Unit], retryAttempt: Int = 0,
                                                     responseIterator: Option[ResponseIterator[ResponseMsg]] = None): PartitionedRequest[PartitionedId, RequestMsg, ResponseMsg] = {
     new PartitionedRequest(message, node, ids, requestBuilder, inputSerializer, outputSerializer, callback, retryAttempt, responseIterator)
   }
@@ -74,7 +74,7 @@ object PartitionedRequest {
 
 class PartitionedRequest[PartitionedId, RequestMsg, ResponseMsg](override val message: RequestMsg, override val node: Node, val partitionedIds: Set[PartitionedId], val requestBuilder: (Node, Set[PartitionedId]) => RequestMsg,
                                                                  override val inputSerializer: InputSerializer[RequestMsg, ResponseMsg], override val outputSerializer: OutputSerializer[RequestMsg, ResponseMsg],
-                                                                 override val callback: Either[Throwable, ResponseMsg] => Unit, override val retryAttempt: Int = 0,
+                                                                 override val callback: Option[Either[Throwable, ResponseMsg] => Unit], override val retryAttempt: Int = 0,
                                                                  val responseIterator: Option[ResponseIterator[ResponseMsg]] = None)
   extends Request[RequestMsg, ResponseMsg](message, node, inputSerializer, outputSerializer, callback, retryAttempt)  {
 

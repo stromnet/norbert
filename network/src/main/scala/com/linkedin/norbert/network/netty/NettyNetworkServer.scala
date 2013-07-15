@@ -54,7 +54,8 @@ class NettyNetworkServer(serverConfig: NetworkServerConfig) extends NetworkServe
     serverConfig.zooKeeperSessionTimeoutMillis)
 
   val messageHandlerRegistry = new MessageHandlerRegistry
-  val messageExecutor = new ThreadPoolMessageExecutor(serviceName = clusterClient.serviceName,
+  val messageExecutor = new ThreadPoolMessageExecutor(clientName = clusterClient.clientName,
+                                                      serviceName = clusterClient.serviceName,
                                                       messageHandlerRegistry = messageHandlerRegistry,
                                                       requestTimeout = serverConfig.requestTimeoutMillis,
                                                       corePoolSize = serverConfig.requestThreadCorePoolSize,
@@ -75,6 +76,7 @@ class NettyNetworkServer(serverConfig: NetworkServerConfig) extends NetworkServe
 
   val serverFilterChannelHandler = new ServerFilterChannelHandler(messageExecutor)
   val serverChannelHandler = new ServerChannelHandler(
+    clientName = clusterClient.clientName,
     serviceName = clusterClient.serviceName,
     channelGroup = channelGroup,
     messageHandlerRegistry = messageHandlerRegistry,

@@ -96,7 +96,7 @@ trait ZooKeeperClusterManagerComponent extends ClusterManagerComponent {
     }
 
     private def handleConnected {
-      log.debug("Handling a Connected message")
+      log.info("Handling a Connected message")
 
       if (connected) {
         log.error("Received a Connected message when already connected")
@@ -111,7 +111,7 @@ trait ZooKeeperClusterManagerComponent extends ClusterManagerComponent {
     }
 
     private def handleDisconnected {
-      log.debug("Handling a Disconnected message")
+      log.info("Handling a Disconnected message")
 
       doIfConnected("a Disconnected message") {
         connected = false
@@ -121,7 +121,7 @@ trait ZooKeeperClusterManagerComponent extends ClusterManagerComponent {
     }
 
     private def handleExpired {
-      log.debug("Handling an Expired message")
+      log.info("Handling an Expired message")
 
       log.error("Connection to ZooKeeper expired, reconnecting...")
       connected = false
@@ -131,7 +131,7 @@ trait ZooKeeperClusterManagerComponent extends ClusterManagerComponent {
     }
 
     private def handleAvailabilityChanged {
-      log.debug("Handling an availability changed event")
+      log.info("Handling an availability changed event")
 
       doIfConnectedWithZooKeeper("an availability changed event") { zk =>
         import scala.collection.JavaConversions._
@@ -167,7 +167,7 @@ trait ZooKeeperClusterManagerComponent extends ClusterManagerComponent {
     }
 
     private def handleMembershipChanged {
-      log.debug("Handling a membership changed event")
+      log.info("Handling a membership changed event")
 
       doIfConnectedWithZooKeeper("a membership changed event") { zk =>
         lookupCurrentNodes(zk)
@@ -176,7 +176,7 @@ trait ZooKeeperClusterManagerComponent extends ClusterManagerComponent {
     }
 
     private def handleAddNode(node: Node) {
-      log.debug("Handling an AddNode(%s) message".format(node))
+      log.info("Handling an AddNode(%s) message".format(node))
 
       doIfConnectedWithZooKeeperWithResponse("an AddNode message", "adding node") { zk =>
         val path = "%s/%d".format(MEMBERSHIP_NODE, node.id)
@@ -296,7 +296,7 @@ trait ZooKeeperClusterManagerComponent extends ClusterManagerComponent {
       zooKeeper = try {
         watcher = new ClusterWatcher(self)
         val zk = Some(zooKeeperFactory(connectString, sessionTimeout, watcher))
-        log.debug("Connected to ZooKeeper")
+        log.info("Connected to ZooKeeper")
         zk
       } catch {
         case ex: IOException =>
@@ -390,7 +390,12 @@ trait ZooKeeperClusterManagerComponent extends ClusterManagerComponent {
     }
 
     private def doIfConnected(what: String)(block: => Unit) {
-      if (connected) block else log.error("Received %s when not connected".format(what))
+      if (connected) {
+        block
+      } else {
+        log.error("Received %s when not connected. Trying to teardown the state using handleExpired and start over".format(what))
+        handleExpired
+      }
     }
 
     private def doWithZooKeeper(what: String)(block: ZooKeeper => Unit) {

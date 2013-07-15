@@ -88,7 +88,8 @@ class ServerFilterChannelHandler(messageExecutor: MessageExecutor) extends Simpl
 }
 
 @ChannelPipelineCoverage("all")
-class ServerChannelHandler(serviceName: String,
+class ServerChannelHandler(clientName: Option[String],
+                           serviceName: String,
                            channelGroup: ChannelGroup,
                            messageHandlerRegistry: MessageHandlerRegistry,
                            messageExecutor: MessageExecutor,
@@ -96,7 +97,7 @@ class ServerChannelHandler(serviceName: String,
                            avoidByteStringCopy: Boolean) extends SimpleChannelHandler with Logging {
   private val statsActor = CachedNetworkStatistics[Int, UUID](SystemClock, requestStatisticsWindow, 200L)
 
-  val statsJmx = JMX.register(new NetworkServerStatisticsMBeanImpl(serviceName, statsActor))
+  val statsJmx = JMX.register(new NetworkServerStatisticsMBeanImpl(clientName, serviceName, statsActor))
 
   def shutdown: Unit = {
     statsJmx.foreach { JMX.unregister(_) }
@@ -134,9 +135,9 @@ class ServerChannelHandler(serviceName: String,
     val request = is.requestFromBytes(requestBytes)
 
     try {
-      messageExecutor.executeMessage(request, (either: Either[Exception, Any]) => {
+      messageExecutor.executeMessage(request, Option((either: Either[Exception, Any]) => {
         responseHandler(context, e.getChannel, either)(is, os)
-      }, Some(context))(is)
+      }), Some(context))(is)
     }
     catch {
       case ex: HeavyLoadException =>
@@ -188,8 +189,8 @@ trait NetworkServerStatisticsMBean {
   def get99PercentileTime: Double
 }
 
-class NetworkServerStatisticsMBeanImpl(serviceName: String, val stats: CachedNetworkStatistics[Int, UUID])
-  extends MBean(classOf[NetworkServerStatisticsMBean], JMX.name(None, serviceName)) with NetworkServerStatisticsMBean {
+class NetworkServerStatisticsMBeanImpl(clientName: Option[String], serviceName: String, val stats: CachedNetworkStatistics[Int, UUID])
+  extends MBean(classOf[NetworkServerStatisticsMBean], JMX.name(clientName, serviceName)) with NetworkServerStatisticsMBean {
 
   def getMedianTime = stats.getStatistics(0.5).map(_.finished.values.map(_.percentile)).flatten.sum
 

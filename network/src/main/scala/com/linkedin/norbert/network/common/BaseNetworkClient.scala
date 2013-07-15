@@ -98,7 +98,7 @@ trait BaseNetworkClient extends Logging {
     val candidate = currentNodes.filter(_ == node)
     if (candidate.size == 0) throw new InvalidNodeException("Unable to send message, %s is not available".format(node))
 
-    doSendRequest(Request(request, node, is, os, callback))
+    doSendRequest(Request(request, node, is, os, Some(callback)))
   }
 
 
@@ -135,7 +135,7 @@ trait BaseNetworkClient extends Logging {
     val nodes = currentNodes
     val queue = new ResponseQueue[ResponseMsg]
 
-    currentNodes.foreach { node: Node => (Request(request, node, is, os, queue +=)) }
+    currentNodes.foreach { node: Node => Request(request, node, is, os, Some((a: Either[Throwable, ResponseMsg]) => {queue += a :Unit})) }
 
     new NorbertResponseIterator(nodes.size, queue)
   }

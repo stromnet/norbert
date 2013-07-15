@@ -38,16 +38,17 @@ trait MessageExecutorComponent {
 }
 
 trait MessageExecutor {
-  def executeMessage[RequestMsg, ResponseMsg](request: RequestMsg, responseHandler: (Either[Exception, ResponseMsg]) => Unit)
+  def executeMessage[RequestMsg, ResponseMsg](request: RequestMsg, responseHandler: Option[(Either[Exception, ResponseMsg]) => Unit])
   (implicit is: InputSerializer[RequestMsg, ResponseMsg]) : Unit = executeMessage(request, responseHandler, None)
-  def executeMessage[RequestMsg, ResponseMsg](request: RequestMsg, responseHandler: (Either[Exception, ResponseMsg]) => Unit, context: Option[RequestContext])
+  def executeMessage[RequestMsg, ResponseMsg](request: RequestMsg, responseHandler: Option[(Either[Exception, ResponseMsg]) => Unit], context: Option[RequestContext])
   (implicit is: InputSerializer[RequestMsg, ResponseMsg]): Unit
   @volatile val filters : MutableList[Filter]
   def addFilters(filters: List[Filter]) : Unit = this.filters ++= (filters)
   def shutdown: Unit
 }
 
-class ThreadPoolMessageExecutor(serviceName: String,
+class ThreadPoolMessageExecutor(clientName: Option[String],
+                                serviceName: String,
                                 messageHandlerRegistry: MessageHandlerRegistry,
                                 val filters: MutableList[Filter],
                                 requestTimeout: Long,
@@ -56,7 +57,8 @@ class ThreadPoolMessageExecutor(serviceName: String,
                                 keepAliveTime: Int,
                                 maxWaitingQueueSize: Int,
                                 requestStatisticsWindow: Long) extends MessageExecutor with Logging {
-  def this(serviceName: String,
+  def this(clientName: Option[String],
+           serviceName: String,
            messageHandlerRegistry: MessageHandlerRegistry,
            requestTimeout: Long,
            corePoolSize: Int,
@@ -64,13 +66,13 @@ class ThreadPoolMessageExecutor(serviceName: String,
            keepAliveTime: Int,
            maxWaitingQueueSize: Int,
            requestStatisticsWindow: Long) =
-    this(serviceName, messageHandlerRegistry, new MutableList[Filter], requestTimeout, corePoolSize, maxPoolSize, keepAliveTime, maxWaitingQueueSize, requestStatisticsWindow)
+    this(clientName, serviceName, messageHandlerRegistry, new MutableList[Filter], requestTimeout, corePoolSize, maxPoolSize, keepAliveTime, maxWaitingQueueSize, requestStatisticsWindow)
 
   private val statsActor = CachedNetworkStatistics[Int, Int](SystemClock, requestStatisticsWindow, 200L)
   private val totalNumRejected = new AtomicInteger
 
   val requestQueue = new ArrayBlockingQueue[Runnable](maxWaitingQueueSize)
-  val statsJmx = JMX.register(new RequestProcessorMBeanImpl(serviceName, statsActor, requestQueue))
+  val statsJmx = JMX.register(new RequestProcessorMBeanImpl(clientName, serviceName, statsActor, requestQueue))
 
   private val threadPool = new ThreadPoolExecutor(corePoolSize, maxPoolSize, keepAliveTime, TimeUnit.SECONDS, requestQueue,
     new NamedPoolThreadFactory("norbert-message-executor")) {
@@ -87,7 +89,7 @@ class ThreadPoolMessageExecutor(serviceName: String,
     }
   }
 
-  def executeMessage[RequestMsg, ResponseMsg](request: RequestMsg, responseHandler: (Either[Exception, ResponseMsg]) => Unit, context: Option[RequestContext] = None)
+  def executeMessage[RequestMsg, ResponseMsg](request: RequestMsg, responseHandler:  Option[(Either[Exception, ResponseMsg]) => Unit], context: Option[RequestContext] = None)
                                              (implicit is: InputSerializer[RequestMsg, ResponseMsg]) {
     val rr = new RequestRunner(request, context, filters, responseHandler, is = is)
     try {
@@ -113,7 +115,7 @@ class ThreadPoolMessageExecutor(serviceName: String,
   private class RequestRunner[RequestMsg, ResponseMsg](request: RequestMsg,
                                                        context: Option[RequestContext],
                                                        filters: MutableList[Filter],
-                                                       callback: (Either[Exception, ResponseMsg]) => Unit,
+                                                       callback: Option[(Either[Exception, ResponseMsg]) => Unit],
                                                        val queuedAt: Long = System.currentTimeMillis,
                                                        val id: Int = idGenerator.getAndIncrement.abs,
                                                        implicit val is: InputSerializer[RequestMsg, ResponseMsg]) extends Runnable {
@@ -123,7 +125,7 @@ class ThreadPoolMessageExecutor(serviceName: String,
       if(now - queuedAt > requestTimeout) {
         totalNumRejected.incrementAndGet
         log.warn("Request timed out, ignoring! Currently = " + now + ". Queued at = " + queuedAt + ". Timeout = " + requestTimeout)
-        callback(Left(new HeavyLoadException))
+        callback.foreach(_(Left(new HeavyLoadException)))
       } else {
         log.debug("Executing message: %s".format(request))
 
@@ -133,7 +135,11 @@ class ThreadPoolMessageExecutor(serviceName: String,
           val handler = messageHandlerRegistry.handlerFor(request)
           try {
             val response = handler(request)
-            if(response == null) None else Some(Right(response))
+            response match {
+              case _:Unit => None
+              case null => None
+              case _ => Some(Right(response))
+            }
           } catch {
             case ex: Exception =>
               log.error(ex, "Message handler threw an exception while processing message")
@@ -149,7 +155,7 @@ class ThreadPoolMessageExecutor(serviceName: String,
             Some(Left(ex))
         }
         response.foreach { (res) =>
-          callback(res)
+          if(!callback.isEmpty) callback.get(res)
           res match {
             case Left(ex) => filters.reverse.foreach(filter => continueOnError(filter.onError(ex, context.getOrElse(null))))
             case Right(responseMsg) =>  filters.reverse.foreach(filter => continueOnError(filter.onResponse(responseMsg, context.getOrElse(null))))
@@ -167,8 +173,8 @@ class ThreadPoolMessageExecutor(serviceName: String,
     def getMedianTime: Double
   }
 
-  class RequestProcessorMBeanImpl(serviceName: String, val stats: CachedNetworkStatistics[Int, Int], queue: ArrayBlockingQueue[Runnable])
-    extends MBean(classOf[RequestProcessorMBean], JMX.name(None, serviceName)) with RequestProcessorMBean {
+  class RequestProcessorMBeanImpl(clientName: Option[String], serviceName: String, val stats: CachedNetworkStatistics[Int, Int], queue: ArrayBlockingQueue[Runnable])
+    extends MBean(classOf[RequestProcessorMBean], JMX.name(clientName, serviceName)) with RequestProcessorMBean {
     def getQueueSize = queue.size
 
     def getTotalNumRejected = totalNumRejected.get.abs

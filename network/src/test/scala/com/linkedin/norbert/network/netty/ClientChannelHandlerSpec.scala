@@ -43,7 +43,7 @@ class ClientChannelHandlerSpec extends Specification with Mockito with SampleMes
       channel.getRemoteAddress returns mock[SocketAddress]
       val ctx = mock[ChannelHandlerContext]
       ctx.getChannel returns channel
-      val request = Request[Ping, Ping](Ping(System.currentTimeMillis), Node(1, "localhost:1234", true), Ping.PingSerializer, Ping.PingSerializer, { e => e })
+      val request = Request[Ping, Ping](Ping(System.currentTimeMillis), Node(1, "localhost:1234", true), Ping.PingSerializer, Ping.PingSerializer, Some({ e => e }))
       sendMockRequest(ctx, request)
 
       val readEvent = mock[MessageEvent]
@@ -62,7 +62,7 @@ class ClientChannelHandlerSpec extends Specification with Mockito with SampleMes
       channel.getRemoteAddress returns mock[SocketAddress]
       val ctx = mock[ChannelHandlerContext]
       ctx.getChannel returns channel
-      val request = Request[Ping, Ping](Ping(System.currentTimeMillis), Node(1, "localhost:1234", true), Ping.PingSerializer, Ping.PingSerializer, { e => e })
+      val request = Request[Ping, Ping](Ping(System.currentTimeMillis), Node(1, "localhost:1234", true), Ping.PingSerializer, Ping.PingSerializer, Some({ e => e }))
       sendMockRequest(ctx, request)
 
       val norbertMessage = NorbertProtos.NorbertMessage.newBuilder().setStatus(Status.ERROR)
