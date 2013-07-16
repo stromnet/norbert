@@ -100,7 +100,7 @@ object NetworkDefaults {
   /**
    * The default window size/time (in milliseconds) for averaging processing statistics
    */
-  val REQUEST_STATISTICS_WINDOW = 10000L
+  val REQUEST_STATISTICS_WINDOW = 10000000L
 
   /**
    *   Detects nodes that may be offline if their request processing times are greater than this multiplier over the average
@@ -110,7 +110,7 @@ object NetworkDefaults {
   /**
    * Detects nodes that may be offline if their request processing times are also greater than this additional constant
    */
-  val OUTLIER_CONSTANT = 10.0
+  val OUTLIER_CONSTANT = 10000.0
 
   /**
    * Protocol Buffers ByteString.copyFrom(byte[]) and ByteString.toByteArray both make a defensive copy of the
