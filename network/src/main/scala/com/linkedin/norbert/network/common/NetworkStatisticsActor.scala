@@ -188,19 +188,19 @@ class NetworkClientStatisticsMBeanImpl(clientName: Option[String], serviceName: 
   def getNumPendingRequests = toJMap(getPendingStats(0.5).map(kv => (kv._1.id, kv._2.size)))
 
   def getMedianTimes =
-    toJMap(getFinishedStats(0.5).map(kv => (kv._1.id, kv._2.percentile)))
+    toJMap(getFinishedStats(0.5).map(kv => (kv._1.id, kv._2.percentile/1000)))
 
   def get75thTimes =
-    toJMap(getFinishedStats(0.75).map(kv => (kv._1.id, kv._2.percentile)))
+    toJMap(getFinishedStats(0.75).map(kv => (kv._1.id, kv._2.percentile/1000)))
 
   def get90thTimes =
-    toJMap(getFinishedStats(0.90).map(kv => (kv._1.id, kv._2.percentile)))
+    toJMap(getFinishedStats(0.90).map(kv => (kv._1.id, kv._2.percentile/1000)))
 
   def get95thTimes =
-    toJMap(getFinishedStats(0.95).map(kv => (kv._1.id, kv._2.percentile)))
+    toJMap(getFinishedStats(0.95).map(kv => (kv._1.id, kv._2.percentile/1000)))
 
   def get99thTimes =
-    toJMap(getFinishedStats(0.99).map(kv => (kv._1.id, kv._2.percentile)))
+    toJMap(getFinishedStats(0.99).map(kv => (kv._1.id, kv._2.percentile/1000)))
 
   def getHealthScoreTimings = {
     val s = stats.getStatistics(0.5)
@@ -209,7 +209,7 @@ class NetworkClientStatisticsMBeanImpl(clientName: Option[String], serviceName: 
 
     toJMap(f.map { case (n, nodeN) =>
       val nodeP = p.get(n).getOrElse(StatsEntry(0.0, 0, 0))
-      (n.id, doCalculation(Map(0 -> nodeP),Map(0 -> nodeN)))
+      (n.id, doCalculation(Map(0 -> nodeP),Map(0 -> nodeN))/1000)
     })
   }
 
@@ -222,23 +222,23 @@ class NetworkClientStatisticsMBeanImpl(clientName: Option[String], serviceName: 
     val total = s.values.map(_.total).sum
     val size = s.values.map(_.size).sum
 
-    safeDivide(total, size)(0.0)
+    safeDivide(total, size)(0.0)/1000
   }
 
   def getClusterPendingTime = {
     val s = getPendingStats(0.5)
-    s.values.map(_.total).sum
+    s.values.map(_.total).sum/1000
   }
 
-  def getClusterMedianTime = averagePercentiles(getFinishedStats(0.5))
+  def getClusterMedianTime = averagePercentiles(getFinishedStats(0.5))/1000
 
-  def getCluster75thTimes = averagePercentiles(getFinishedStats(0.75))
+  def getCluster75thTimes = averagePercentiles(getFinishedStats(0.75))/1000
 
-  def getCluster90th = averagePercentiles(getFinishedStats(0.90))
+  def getCluster90th = averagePercentiles(getFinishedStats(0.90))/1000
 
-  def getCluster95th = averagePercentiles(getFinishedStats(0.95))
+  def getCluster95th = averagePercentiles(getFinishedStats(0.95))/1000
 
-  def getCluster99th = averagePercentiles(getFinishedStats(0.99))
+  def getCluster99th = averagePercentiles(getFinishedStats(0.99))/1000
 
   import scala.collection.JavaConversions._
 
@@ -248,7 +248,7 @@ class NetworkClientStatisticsMBeanImpl(clientName: Option[String], serviceName: 
 
   def getClusterTotalRequests = getTotalRequests.values.sum
 
-  def getClusterHealthScoreTiming = doCalculation(getPendingStats(0.5), getFinishedStats(0.5))
+  def getClusterHealthScoreTiming = doCalculation(getPendingStats(0.5), getFinishedStats(0.5))/1000
 
   def getQueueSize = stats.getStatistics(0.5).map(_.requestQueueSize().values.sum) getOrElse(0)
 

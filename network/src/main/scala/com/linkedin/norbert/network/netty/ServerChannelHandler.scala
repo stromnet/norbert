@@ -192,19 +192,19 @@ trait NetworkServerStatisticsMBean {
 class NetworkServerStatisticsMBeanImpl(clientName: Option[String], serviceName: String, val stats: CachedNetworkStatistics[Int, UUID])
   extends MBean(classOf[NetworkServerStatisticsMBean], JMX.name(clientName, serviceName)) with NetworkServerStatisticsMBean {
 
-  def getMedianTime = stats.getStatistics(0.5).map(_.finished.values.map(_.percentile)).flatten.sum
+  def getMedianTime = (stats.getStatistics(0.5).map(_.finished.values.map(_.percentile)).flatten.sum)/1000
 
-  def getRequestsPerSecond = stats.getStatistics(0.5).map(_.rps().values).flatten.sum
+  def getRequestsPerSecond = (stats.getStatistics(0.5).map(_.rps().values).flatten.sum)/1000
 
   def getAverageRequestProcessingTime = stats.getStatistics(0.5).map { stats =>
     val total = stats.finished.values.map(_.total).sum
     val size = stats.finished.values.map(_.size).sum
 
-    safeDivide(total.toDouble, size)(0.0)
+    safeDivide(total.toDouble, size)(0.0)/1000
   } getOrElse(0.0)
 
-  def get90PercentileTime = stats.getStatistics(0.90).map(_.finished.values.map(_.percentile)).flatten.sum
+  def get90PercentileTime = (stats.getStatistics(0.90).map(_.finished.values.map(_.percentile)).flatten.sum)/1000
 
-  def get99PercentileTime = stats.getStatistics(0.99).map(_.finished.values.map(_.percentile)).flatten.sum 
+  def get99PercentileTime = (stats.getStatistics(0.99).map(_.finished.values.map(_.percentile)).flatten.sum)/1000 
 }
 
