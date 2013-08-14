@@ -127,7 +127,7 @@ class ServerChannelHandler(clientName: Option[String],
     } catch {
       case ex: InvalidMessageException =>
         Channels.write(ctx, Channels.future(channel), (context, ResponseHelper.errorResponse(context.requestId, ex)))
-        statsActor.endRequest(0, context.requestId)
+        statsActor.endRequest(0, context.requestId, 0)
 
         throw ex
     }
@@ -142,7 +142,7 @@ class ServerChannelHandler(clientName: Option[String],
     catch {
       case ex: HeavyLoadException =>
         Channels.write(ctx, Channels.future(channel), (context, ResponseHelper.errorResponse(context.requestId, ex, NorbertProtos.NorbertMessage.Status.HEAVYLOAD)))
-        statsActor.endRequest(0, context.requestId)
+        //statsActor.endRequest(0, context.requestId) it seems we are doing this in both the thread and outside
     }
   }
 
@@ -163,7 +163,7 @@ class ServerChannelHandler(clientName: Option[String],
 
     channel.write((context, response))
 
-    statsActor.endRequest(0, context.requestId)
+    //statsActor.endRequest(0, context.requestId) not sure why we are doing this in both places
   }
 }
 
@@ -187,6 +187,12 @@ trait NetworkServerStatisticsMBean {
   def getMedianTime: Double
   def get90PercentileTime: Double
   def get99PercentileTime: Double
+
+
+  def getAverageResponseProcessingTime: Double
+  def getMedianResponseTime: Double
+  def get90PercentileResponseTime: Double
+  def get99PercentileResponseTime: Double
 }
 
 class NetworkServerStatisticsMBeanImpl(clientName: Option[String], serviceName: String, val stats: CachedNetworkStatistics[Int, UUID])
@@ -206,5 +212,26 @@ class NetworkServerStatisticsMBeanImpl(clientName: Option[String], serviceName: 
   def get90PercentileTime = (stats.getStatistics(0.90).map(_.finished.values.map(_.percentile)).flatten.sum)/1000
 
   def get99PercentileTime = (stats.getStatistics(0.99).map(_.finished.values.map(_.percentile)).flatten.sum)/1000 
+
+  //the following statistics are in microseconds not milliseconds
+  def getAverageResponseProcessingTime = stats.getStatistics(0.5).map { stats =>
+    val total = stats.finishedResponse.values.map(_.total).sum
+    val size = stats.finishedResponse.values.map(_.size).sum
+
+    safeDivide(total.toDouble, size)(0.0)
+  } getOrElse(0.0)
+
+  def getMedianResponseTime = stats.getStatistics(0.5).map(_.finishedResponse.values.map(_.percentile)).flatten.sum
+
+  def get90PercentileResponseTime = stats.getStatistics(0.90).map(_.finishedResponse.values.map(_.percentile)).flatten.sum
+
+  def get99PercentileResponseTime = stats.getStatistics(0.99).map(_.finishedResponse.values.map(_.percentile)).flatten.sum
+
+  def getAverageQueueTime = stats.getStatistics(0.5).map { stats =>
+    val total = stats.finishedQueueTime.values.map(_.total).sum
+    val size = stats.finishedQueueTime.values.map(_.size).sum
+
+    safeDivide(total.toDouble, size)(0.0)
+  } getOrElse (0.0)
 }
 

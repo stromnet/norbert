@@ -53,13 +53,15 @@ class CachedNetworkStatistics[GroupIdType, RequestIdType](private val stats: Net
   val timings = CacheMaintainer(clock, refreshInterval, () => stats.getTimings)
   val pendingTimings = CacheMaintainer(clock, refreshInterval, () => stats.getPendingTimings)
   val totalRequests = CacheMaintainer(clock, refreshInterval, () => stats.getTotalRequests )
+  val finishedQueueTimings = CacheMaintainer(clock, refreshInterval, () => stats.getQueueTimings)
+  val responseTimings = CacheMaintainer(clock, refreshInterval, () => stats.getResponseTimings)
 
   def beginRequest(groupId: GroupIdType, requestId: RequestIdType) {
     stats.beginRequest(groupId, requestId)
   }
 
-  def endRequest(groupId: GroupIdType, requestId: RequestIdType) {
-    stats.endRequest(groupId, requestId)
+  def endRequest(groupId: GroupIdType, requestId: RequestIdType, queueTime: Long) {
+    stats.endRequest(groupId, requestId, queueTime)
   }
 
   def reset { stats.reset }
@@ -82,7 +84,9 @@ class CachedNetworkStatistics[GroupIdType, RequestIdType](private val stats: Net
           pending = pendingTimings.get.map(calculate(_, p)).getOrElse(Map.empty),
           totalRequests = () => totalRequests.get.getOrElse(Map.empty),
           rps = () => finishedArray.get.map(_.mapValues(rps(_))).getOrElse(Map.empty),
-          requestQueueSize = () => finishedArray.get.map(_.mapValues(_.length)).getOrElse(Map.empty))
+          requestQueueSize = () => finishedArray.get.map(_.mapValues(_.length)).getOrElse(Map.empty),
+          finishedQueueTime = finishedQueueTimings.get.map(calculate(_, p)).getOrElse(Map.empty),
+          finishedResponse = responseTimings.get.map(calculate(_, p)).getOrElse(Map.empty))
       })
     }.get
   }
@@ -105,7 +109,9 @@ case class JoinedStatistics[K](finished: Map[K, StatsEntry],
                                pending: Map[K, StatsEntry],
                                rps: () => Map[K, Int],
                                totalRequests: () => Map[K, Int],
-                               requestQueueSize: () => Map[K, Int])
+                               requestQueueSize: () => Map[K, Int],
+                               finishedQueueTime: Map[K, StatsEntry],
+                               finishedResponse: Map[K, StatsEntry])
 
 private case class NetworkStatisticsTracker[GroupIdType, RequestIdType](clock: Clock, timeWindow: Long) extends Logging {
   private var timeTrackers: java.util.concurrent.ConcurrentMap[GroupIdType, RequestTimeTracker[RequestIdType]] =
@@ -119,8 +125,8 @@ private case class NetworkStatisticsTracker[GroupIdType, RequestIdType](clock: C
     getTracker(groupId).beginRequest(requestId)
   }
 
-  def endRequest(groupId: GroupIdType, requestId: RequestIdType) {
-    getTracker(groupId).endRequest(requestId)
+  def endRequest(groupId: GroupIdType, requestId: RequestIdType, queueTime:Long = 0) {
+    getTracker(groupId).endRequest(requestId, queueTime)
   }
 
   import scala.collection.JavaConversions._
@@ -140,6 +146,15 @@ private case class NetworkStatisticsTracker[GroupIdType, RequestIdType](clock: C
   }
 
   def getTotalRequests = timeTrackers.toMap.mapValues( _.pendingRequestTimeTracker.getTotalNumRequests )
+
+  //this does not need to be sorted since we are not doing 90th and 99th percentile
+  def getQueueTimings = {
+    timeTrackers.toMap.mapValues(_.queueTimeTracker.getTimings)
+  }
+
+  def getResponseTimings = {
+    timeTrackers.toMap.mapValues(_.totalRequestProcessingTimeTracker.getTimings)
+  }
 }
 
 trait NetworkClientStatisticsMBean {

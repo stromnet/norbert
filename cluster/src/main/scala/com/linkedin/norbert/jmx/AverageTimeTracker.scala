@@ -71,6 +71,106 @@ class FinishedRequestTimeTracker(clock: Clock, interval: Long) {
   }
 }
 
+class TotalRequestProcessingTime[KeyT](clock:Clock, interval:Long) {
+  private val q = new java.util.concurrent.ConcurrentLinkedQueue[(Long, Long)]()
+  private val currentlyCleaning = new java.util.concurrent.atomic.AtomicBoolean
+
+  private def clean {
+    // Let only one thread clean at a time
+    if(currentlyCleaning.compareAndSet(false, true)) {
+      clean0
+      currentlyCleaning.set(false)
+    }
+  }
+
+  private def clean0 {
+    while(!q.isEmpty) {
+      val head = q.peek
+      if(head == null)
+        return
+
+      val (completion, processingTime) = head
+      if(clock.getCurrentTimeOffsetMicroseconds - completion > interval) {
+        q.remove(head)
+      } else {
+        return
+      }
+    }
+  }
+
+  def addTime(processingTime: Long) {
+    clean
+    q.offer( (clock.getCurrentTimeOffsetMicroseconds, processingTime) )
+  }
+
+  def getArray: Array[(Long, Long)] = {
+    clean
+    q.toArray(Array.empty[(Long, Long)])
+  }
+
+  def getTimings: Array[Long] = {
+    getArray.map(_._2).sorted
+  }
+
+  def total = {
+    getTimings.sum
+  }
+
+  def reset {
+    q.clear
+  }
+}
+
+class QueueTimeTracker[KeyT](clock: Clock, interval: Long) {
+    private val q = new java.util.concurrent.ConcurrentLinkedQueue[(Long, Long)]()
+    private val currentlyCleaning = new java.util.concurrent.atomic.AtomicBoolean
+
+    private def clean {
+      // Let only one thread clean at a time
+      if(currentlyCleaning.compareAndSet(false, true)) {
+        clean0
+        currentlyCleaning.set(false)
+      }
+    }
+
+    private def clean0 {
+      while(!q.isEmpty) {
+        val head = q.peek
+        if(head == null)
+          return
+
+        val (completion, processingTime) = head
+        if(clock.getCurrentTimeOffsetMicroseconds - completion > interval) {
+          q.remove(head)
+        } else {
+          return
+        }
+      }
+    }
+
+    def addTime(processingTime: Long) {
+      clean
+      q.offer( (clock.getCurrentTimeOffsetMicroseconds, processingTime) )
+    }
+
+    def getArray: Array[(Long, Long)] = {
+      clean
+      q.toArray(Array.empty[(Long, Long)])
+    }
+
+    def getTimings: Array[Long] = {
+      getArray.map(_._2).sorted
+    }
+
+    def total = {
+      getTimings.sum
+    }
+
+    def reset {
+      q.clear
+    }
+}
+
 // Threadsafe
 class PendingRequestTimeTracker[KeyT](clock: Clock) {
   private val numRequests = new AtomicInteger()
@@ -108,14 +208,20 @@ class PendingRequestTimeTracker[KeyT](clock: Clock) {
 class RequestTimeTracker[KeyT](clock: Clock, interval: Long) {
   val finishedRequestTimeTracker = new FinishedRequestTimeTracker(clock, interval)
   val pendingRequestTimeTracker = new PendingRequestTimeTracker[KeyT](clock)
+  val queueTimeTracker = new QueueTimeTracker[KeyT](clock, interval)//TODO
+  val totalRequestProcessingTimeTracker = new TotalRequestProcessingTime[KeyT](clock, interval)
 
   def beginRequest(key: KeyT) {
     pendingRequestTimeTracker.beginRequest(key)
   }
 
-  def endRequest(key: KeyT) {
+  def endRequest(key: KeyT, queueTime: Long = 0) {
     pendingRequestTimeTracker.getStartTime(key).foreach { startTime =>
+      //over time we will retire this since this does not account for the amount of time the request
+      //was stuck in the queue
       finishedRequestTimeTracker.addTime(clock.getCurrentTimeOffsetMicroseconds - startTime)
+      queueTimeTracker.addTime(queueTime)
+      totalRequestProcessingTimeTracker.addTime(queueTime + clock.getCurrentTimeOffsetMicroseconds - startTime)
     }
     pendingRequestTimeTracker.endRequest(key)
   }
@@ -123,5 +229,7 @@ class RequestTimeTracker[KeyT](clock: Clock, interval: Long) {
   def reset {
     finishedRequestTimeTracker.reset
     pendingRequestTimeTracker.reset
+    queueTimeTracker.reset
+    totalRequestProcessingTimeTracker.reset
   }
 }

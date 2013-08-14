@@ -63,7 +63,7 @@ class ClientChannelHandler(clientName: Option[String],
           request.foreach { r =>
              if ((now - r.timestamp) > staleRequestTimeoutMillis) {
                 requestMap.remove(uuid)
-                stats.endRequest(r.node, r.id)
+                stats.endRequest(r.node, r.id, 0)
                 expiredEntryCount += 1
              }
           }
@@ -122,11 +122,13 @@ class ClientChannelHandler(clientName: Option[String],
     val requestId = new UUID(message.getRequestIdMsb, message.getRequestIdLsb)
 
     requestMap.get(requestId) match {
-      case null => log.warn("Received a response message [%s] without a corresponding request".format(message))
+      case null => {
+        log.warn("Received a response message UUID: [%s] without a corresponding request from %s".format(requestId, ctx.getChannel().getRemoteAddress()))
+      }
       case request =>
         requestMap.remove(requestId)
 
-        stats.endRequest(request.node, request.id)
+        stats.endRequest(request.node, request.id, 0)
 
         if (message.getStatus == NorbertProtos.NorbertMessage.Status.OK) {
           responseHandler.onSuccess(request, message)
