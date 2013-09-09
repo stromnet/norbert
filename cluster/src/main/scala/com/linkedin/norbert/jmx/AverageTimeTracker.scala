@@ -178,16 +178,24 @@ class PendingRequestTimeTracker[KeyT](clock: Clock) {
   private val map : java.util.concurrent.ConcurrentMap[KeyT, Long] =
     new java.util.concurrent.ConcurrentHashMap[KeyT, Long]
 
+  private val mapQueueTime : java.util.concurrent.ConcurrentMap[KeyT, Long] = 
+    new java.util.concurrent.ConcurrentHashMap[KeyT, Long]
+
   def getStartTime(key: KeyT) = Option(map.get(key))
 
-  def beginRequest(key: KeyT) {
+  //pre-condition for this method is the above method returns some 
+  def getQueueTime(key: KeyT) = map.get(key)
+
+  def beginRequest(key: KeyT, queueTime: Long) {
     numRequests.incrementAndGet
     val now = clock.getCurrentTimeOffsetMicroseconds
     map.put(key, now)
+    mapQueueTime.put(key, queueTime)
   }
 
   def endRequest(key: KeyT) {
     map.remove(key)
+    mapQueueTime.remove(key)
   }
 
   def getTimings = {
@@ -211,15 +219,16 @@ class RequestTimeTracker[KeyT](clock: Clock, interval: Long) {
   val queueTimeTracker = new QueueTimeTracker[KeyT](clock, interval)//TODO
   val totalRequestProcessingTimeTracker = new TotalRequestProcessingTime[KeyT](clock, interval)
 
-  def beginRequest(key: KeyT) {
-    pendingRequestTimeTracker.beginRequest(key)
+  def beginRequest(key: KeyT, queueTime: Long = 0) {
+    pendingRequestTimeTracker.beginRequest(key, queueTime)
   }
 
-  def endRequest(key: KeyT, queueTime: Long = 0) {
+  def endRequest(key: KeyT) {
     pendingRequestTimeTracker.getStartTime(key).foreach { startTime =>
       //over time we will retire this since this does not account for the amount of time the request
       //was stuck in the queue
       finishedRequestTimeTracker.addTime(clock.getCurrentTimeOffsetMicroseconds - startTime)
+      val queueTime = pendingRequestTimeTracker.getQueueTime(key)
       queueTimeTracker.addTime(queueTime)
       totalRequestProcessingTimeTracker.addTime(queueTime + clock.getCurrentTimeOffsetMicroseconds - startTime)
     }

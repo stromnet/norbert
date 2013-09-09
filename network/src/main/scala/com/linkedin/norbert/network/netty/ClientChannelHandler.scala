@@ -63,7 +63,7 @@ class ClientChannelHandler(clientName: Option[String],
           request.foreach { r =>
              if ((now - r.timestamp) > staleRequestTimeoutMillis) {
                 requestMap.remove(uuid)
-                stats.endRequest(r.node, r.id, 0)
+                stats.endRequest(r.node, r.id)
                 expiredEntryCount += 1
              }
           }
@@ -102,7 +102,7 @@ class ClientChannelHandler(clientName: Option[String],
 
     if(!request.callback.isEmpty) {
       requestMap.put(request.id, request)
-      stats.beginRequest(request.node, request.id)
+      stats.beginRequest(request.node, request.id, 0)
     }
 
     val message = NorbertProtos.NorbertMessage.newBuilder
@@ -128,7 +128,7 @@ class ClientChannelHandler(clientName: Option[String],
       case request =>
         requestMap.remove(requestId)
 
-        stats.endRequest(request.node, request.id, 0)
+        stats.endRequest(request.node, request.id)
 
         if (message.getStatus == NorbertProtos.NorbertMessage.Status.OK) {
           responseHandler.onSuccess(request, message)

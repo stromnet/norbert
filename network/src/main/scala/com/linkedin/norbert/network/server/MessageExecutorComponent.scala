@@ -83,12 +83,12 @@ class ThreadPoolMessageExecutor(clientName: Option[String],
     override def beforeExecute(t: Thread, r: Runnable) = {
       val rr = r.asInstanceOf[RequestRunner[_, _]]
 
-      statsActor.beginRequest(0, rr.id)
+      statsActor.beginRequest(0, rr.id, (System.currentTimeMillis() - rr.queuedAt) * 1000)
     }
 
     override def afterExecute(r: Runnable, t: Throwable) = {
       val rr = r.asInstanceOf[RequestRunner[_, _]]
-      statsActor.endRequest(0, rr.id, (System.currentTimeMillis() - rr.queuedAt) * 1000)
+      statsActor.endRequest(0, rr.id)
     }
   }
 
@@ -99,7 +99,7 @@ class ThreadPoolMessageExecutor(clientName: Option[String],
       threadPool.execute(rr)
     } catch {
       case ex: RejectedExecutionException =>
-        statsActor.endRequest(0, rr.id, (System.currentTimeMillis() - rr.queuedAt) * 1000)
+        statsActor.endRequest(0, rr.id)
 
         totalNumRejected.incrementAndGet
         log.warn("Request processing queue full. Size is currently " + requestQueue.size)

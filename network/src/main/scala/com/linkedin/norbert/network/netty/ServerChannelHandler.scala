@@ -116,7 +116,7 @@ class ServerChannelHandler(clientName: Option[String],
     val messageName = norbertMessage.getMessageName
     val requestBytes = ProtoUtils.byteStringToByteArray(norbertMessage.getMessage, avoidByteStringCopy)
 
-    statsActor.beginRequest(0, context.requestId)
+    statsActor.beginRequest(0, context.requestId, 0)
 
     val (handler, is, os) = try {
       val handler: Any => Any = messageHandlerRegistry.handlerFor(messageName)
@@ -127,7 +127,7 @@ class ServerChannelHandler(clientName: Option[String],
     } catch {
       case ex: InvalidMessageException =>
         Channels.write(ctx, Channels.future(channel), (context, ResponseHelper.errorResponse(context.requestId, ex)))
-        statsActor.endRequest(0, context.requestId, 0)
+        statsActor.endRequest(0, context.requestId)
 
         throw ex
     }
@@ -142,7 +142,7 @@ class ServerChannelHandler(clientName: Option[String],
     catch {
       case ex: HeavyLoadException =>
         Channels.write(ctx, Channels.future(channel), (context, ResponseHelper.errorResponse(context.requestId, ex, NorbertProtos.NorbertMessage.Status.HEAVYLOAD)))
-        //statsActor.endRequest(0, context.requestId) it seems we are doing this in both the thread and outside
+        statsActor.endRequest(0, context.requestId) 
     }
   }
 
@@ -163,7 +163,7 @@ class ServerChannelHandler(clientName: Option[String],
 
     channel.write((context, response))
 
-    //statsActor.endRequest(0, context.requestId) not sure why we are doing this in both places
+    statsActor.endRequest(0, context.requestId)
   }
 }
 
@@ -198,20 +198,22 @@ trait NetworkServerStatisticsMBean {
 class NetworkServerStatisticsMBeanImpl(clientName: Option[String], serviceName: String, val stats: CachedNetworkStatistics[Int, UUID])
   extends MBean(classOf[NetworkServerStatisticsMBean], JMX.name(clientName, serviceName)) with NetworkServerStatisticsMBean {
 
-  def getMedianTime = (stats.getStatistics(0.5).map(_.finished.values.map(_.percentile)).flatten.sum)/1000
+  def toMillis(statsMetric: Double):Double = {statsMetric/1000} 
 
-  def getRequestsPerSecond = (stats.getStatistics(0.5).map(_.rps().values).flatten.sum)/1000
+  def getMedianTime = toMillis((stats.getStatistics(0.5).map(_.finished.values.map(_.percentile)).flatten.sum))
+
+  def getRequestsPerSecond = toMillis((stats.getStatistics(0.5).map(_.rps().values).flatten.sum)).asInstanceOf[Int]
 
   def getAverageRequestProcessingTime = stats.getStatistics(0.5).map { stats =>
     val total = stats.finished.values.map(_.total).sum
     val size = stats.finished.values.map(_.size).sum
 
-    safeDivide(total.toDouble, size)(0.0)/1000
+    toMillis(safeDivide(total.toDouble, size)(0.0))
   } getOrElse(0.0)
 
-  def get90PercentileTime = (stats.getStatistics(0.90).map(_.finished.values.map(_.percentile)).flatten.sum)/1000
+  def get90PercentileTime = toMillis((stats.getStatistics(0.90).map(_.finished.values.map(_.percentile)).flatten.sum))
 
-  def get99PercentileTime = (stats.getStatistics(0.99).map(_.finished.values.map(_.percentile)).flatten.sum)/1000 
+  def get99PercentileTime = toMillis((stats.getStatistics(0.99).map(_.finished.values.map(_.percentile)).flatten.sum)) 
 
   //the following statistics are in microseconds not milliseconds
   def getAverageResponseProcessingTime = stats.getStatistics(0.5).map { stats =>
