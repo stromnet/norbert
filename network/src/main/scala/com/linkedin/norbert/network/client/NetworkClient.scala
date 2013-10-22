@@ -38,6 +38,7 @@ class NetworkClientConfig {
   var staleRequestTimeoutMins = NetworkDefaults.STALE_REQUEST_TIMEOUT_MINS
   var staleRequestCleanupFrequenceMins = NetworkDefaults.STALE_REQUEST_CLEANUP_FREQUENCY_MINS
 
+  var retryStrategy:Option[RetryStrategy] = None
 
   /**
    * Represents how long a channel stays alive. There are some specifics:
