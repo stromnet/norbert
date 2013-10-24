@@ -25,6 +25,7 @@ import partitioned.PartitionedNetworkClient
 import java.util
 import com.sun.xml.internal.ws.resources.SoapMessages
 import com.linkedin.norbert.cluster.Node
+import com.linkedin.norbert.network.client.NetworkClientConfig
 
 class ResponseQueue[ResponseMsg] extends java.util.concurrent.LinkedBlockingQueue[Either[Throwable, ResponseMsg]] {
   def += (res: Either[Throwable, ResponseMsg]): ResponseQueue[ResponseMsg] = {
@@ -205,7 +206,7 @@ case class PartialIterator[ResponseMsg](inner: ExceptionIterator[ResponseMsg]) e
  * @param nextRetryStrategy This value specifies if there is another retry which we want to specify should prev fail
  * @param initialTimeout This value is used to determine the very first timeout before the first retry kicks in
  */
-class RetryStrategy(val timeoutForRetry: Long, val thresholdNodeFailures: Int, val nextRetryStrategy: Option[RetryStrategy] = None, val initialTimeout:Long=5000) {
+class RetryStrategy(val timeoutForRetry: Long, val thresholdNodeFailures: Int, val nextRetryStrategy: Option[RetryStrategy] = None, val initialTimeout:Long=5000) {//TODO make constant in networkClientConfig
   /**
    * This method is a callback which we register with the iterator and is invoked on timeout
    * @param numNodeFailures total number of nodes which have failed thus far
@@ -215,7 +216,8 @@ class RetryStrategy(val timeoutForRetry: Long, val thresholdNodeFailures: Int, v
     if(numNodeFailures <= thresholdNodeFailures) {
       return nextRetryStrategy
     }
-    throw new RuntimeException("Timedout waiting for the final %d requests".format(numNodeFailures))
+    val x = NetworkClientConfig.defaultIteratorTimeout
+    throw new TimeoutException("The number of responses which timed out from nodes exceeded threshold:%d requests".format(numNodeFailures))
   }
 }
 
@@ -253,11 +255,11 @@ class SelectiveRetryIterator[PartitionedId, RequestMsg, ResponseMsg](
   /**
    * The time we started a pass which is either the first attempt or post a retry
    */
-  var timeStartedPass : AtomicLong = new AtomicLong(System.currentTimeMillis())
+  var timeStartedPass : Long = System.currentTimeMillis()
   /**
    * The number of machines/nodes which have not responded so far
    */
-  var distinctResponsesLeft: AtomicInteger = new AtomicInteger(numRequests)
+  var distinctResponsesLeft: Int = numRequests
 
   /**
    * This function determines whether an entry received from the queue
@@ -308,15 +310,16 @@ class SelectiveRetryIterator[PartitionedId, RequestMsg, ResponseMsg](
    * @return a response
    */
   def next(timeout: Long, unit: TimeUnit):ResponseMsg = {
+    val timeEnded = System.currentTimeMillis + timeout
     while(true) {
-      queue.poll(timeout, unit) match {
+      queue.poll(timeEnded - System.currentTimeMillis, unit) match {
         case null =>
           throw new TimeoutException("Timed out waiting for response")
 
         case f => {
           var e:Tuple3[Node, Set[PartitionedId], ResponseMsg] = null
           f match {
-		            case g:Throwable => throw g;
+		case g:Throwable => throw g;
                 case h:Tuple3[Node, Set[PartitionedId], ResponseMsg] => e = h
                 case _ => return null.asInstanceOf[ResponseMsg] 
           }
@@ -336,7 +339,7 @@ class SelectiveRetryIterator[PartitionedId, RequestMsg, ResponseMsg](
    * @return a response
    */
   def next(): ResponseMsg = {
-    var timeoutCutoff: Long = timeStartedPass.get() + timeoutForRetry
+    var timeoutCutoff: Long = timeStartedPass + timeoutForRetry
     while(true) {
       queue.poll(timeoutCutoff - System.currentTimeMillis(), TimeUnit.MILLISECONDS) match {
         case null => {
@@ -359,26 +362,26 @@ class SelectiveRetryIterator[PartitionedId, RequestMsg, ResponseMsg](
               timeoutForRetry = e.timeoutForRetry
 
               //time started pass should be relative the start time
-              timeStartedPass.set(timeoutCutoff)
-              timeoutCutoff = timeStartedPass.get() + timeoutForRetry 
+              timeStartedPass = timeoutCutoff
+              timeoutCutoff = timeStartedPass + timeoutForRetry 
             }
             case None => {
               if (!duplicatesOk)
-                throw new TimeoutException("Timedout waiting for final %d nodes".format(distinctResponsesLeft.get()))
+                throw new TimeoutException("Timedout waiting for final %d nodes".format(distinctResponsesLeft))
               else
                 throw new TimeoutException("Timedout waiting for final %d partitions to return".format(setRequests.size))
             }
           }
 
-	        //If for a particular partition id 3/10 of the replicas are in trouble then quit
-          val nodes = calculateNodesFromIds(ids, failedNodes, 3)
+	  //If for a particular partition id only if 10/10 of the replicas are in trouble then quit
+          val nodes = calculateNodesFromIds(ids, failedNodes, 10)
 
           if(duplicatesOk != true) {
             //only the responses from these new requests count
             log.debug("Adjust responseIterator to: %d".format(nodes.keySet.size))
-            distinctResponsesLeft.set(nodes.keySet.size)
-	          //reset the outstanding requests map
-	          setRequests = Map.empty[PartitionedId, Node]
+            distinctResponsesLeft=nodes.keySet.size
+	    //reset the outstanding requests map
+	    setRequests = Map.empty[PartitionedId, Node]
           }
 
           nodes.foreach {
@@ -404,10 +407,10 @@ class SelectiveRetryIterator[PartitionedId, RequestMsg, ResponseMsg](
           e match {
             case Right(response) => {
               if(isValidQueueEntry(response._1, response._2)) {
-                distinctResponsesLeft.decrementAndGet()
+                distinctResponsesLeft=distinctResponsesLeft - 1
                 response._2.foreach {
-		              partitionId => setRequests -= partitionId
-		            }
+		  partitionId => setRequests -= partitionId
+		}
                 return response._3
               }
             }
@@ -424,7 +427,7 @@ class SelectiveRetryIterator[PartitionedId, RequestMsg, ResponseMsg](
 
   def hasNext = {
     if(!duplicatesOk)
-      distinctResponsesLeft.get() != 0
+      distinctResponsesLeft != 0
     else {
       setRequests.isEmpty != true
     }
