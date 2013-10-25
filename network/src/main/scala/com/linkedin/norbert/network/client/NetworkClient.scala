@@ -62,6 +62,8 @@ class NetworkClientConfig {
   var responseHandlerMaxWaitingQueueSize = NetworkDefaults.RESPONSE_THREAD_POOL_QUEUE_SIZE
 
   var avoidByteStringCopy = NetworkDefaults.AVOID_BYTESTRING_COPY
+
+  var retryStrategy:Option[RetryStrategy] = None 
 }
 
 object NetworkClient {
