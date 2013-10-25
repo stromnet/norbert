@@ -206,7 +206,7 @@ case class PartialIterator[ResponseMsg](inner: ExceptionIterator[ResponseMsg]) e
  * @param nextRetryStrategy This value specifies if there is another retry which we want to specify should prev fail
  * @param initialTimeout This value is used to determine the very first timeout before the first retry kicks in
  */
-class RetryStrategy(val timeoutForRetry: Long, val thresholdNodeFailures: Int, val nextRetryStrategy: Option[RetryStrategy] = None, val initialTimeout:Long=NetworkClientConfig.defaultIteratorTimeout) {//TODO make constant in networkClientConfig
+class RetryStrategy(val timeoutForRetry: Long, val thresholdNodeFailures: Int, val nextRetryStrategy: Option[RetryStrategy] = None, val initialTimeout:Long=NetworkClientConfig.defaultIteratorTimeout) {
   /**
    * This method is a callback which we register with the iterator and is invoked on timeout
    * @param numNodeFailures total number of nodes which have failed thus far
