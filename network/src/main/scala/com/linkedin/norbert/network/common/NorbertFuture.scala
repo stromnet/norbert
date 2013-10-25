@@ -212,12 +212,12 @@ class RetryStrategy(val timeoutForRetry: Long, val thresholdNodeFailures: Int, v
    * @param numNodeFailures total number of nodes which have failed thus far
    * @return Setup a future retry in case this retry fails
    */
-  def onTimeout(numNodeFailures: Int):Option[RetryStrategy] = {
+  def onTimeout(numNodeFailures: Int):Tuple2[Option[RetryStrategy],Boolean] = {
+    System.out.println("Number of failures:" + numNodeFailures)
     if(numNodeFailures <= thresholdNodeFailures) {
-      return nextRetryStrategy
-    }
-    val x = NetworkClientConfig.defaultIteratorTimeout
-    throw new TimeoutException("The number of responses which timed out from nodes exceeded threshold:%d requests".format(numNodeFailures))
+      return Tuple2(nextRetryStrategy,true)
+    } 
+    return Tuple2(None,false) 
   }
 }
 
@@ -340,6 +340,7 @@ class SelectiveRetryIterator[PartitionedId, RequestMsg, ResponseMsg](
    */
   def next(): ResponseMsg = {
     var timeoutCutoff: Long = timeStartedPass + timeoutForRetry
+    var conditionsRetryMet = true
     while(true) {
       queue.poll(timeoutCutoff - System.currentTimeMillis(), TimeUnit.MILLISECONDS) match {
         case null => {
@@ -358,7 +359,9 @@ class SelectiveRetryIterator[PartitionedId, RequestMsg, ResponseMsg](
               }
 
               //check if we meet the requirements for retry to occur or not
-              retryStrategy = e.onTimeout(failedNodes.size)
+              var tuple:Tuple2[Option[RetryStrategy],Boolean] = e.onTimeout(failedNodes.size)
+              retryStrategy = tuple._1
+              conditionsRetryMet = tuple._2 
               timeoutForRetry = e.timeoutForRetry
 
               //time started pass should be relative the start time
@@ -373,31 +376,33 @@ class SelectiveRetryIterator[PartitionedId, RequestMsg, ResponseMsg](
             }
           }
 
-	  //If for a particular partition id only if 10/10 of the replicas are in trouble then quit
-          val nodes = calculateNodesFromIds(ids, failedNodes, 10)
+	  if(conditionsRetryMet) {
+	    //If for a particular partition id only if 10/10 of the replicas are in trouble then quit
+            val nodes = calculateNodesFromIds(ids, failedNodes, 10)
 
-          if(duplicatesOk != true) {
-            //only the responses from these new requests count
-            log.debug("Adjust responseIterator to: %d".format(nodes.keySet.size))
-            distinctResponsesLeft=nodes.keySet.size
-	    //reset the outstanding requests map
-	    setRequests = Map.empty[PartitionedId, Node]
-          }
+            if(duplicatesOk != true) {
+              //only the responses from these new requests count
+              log.debug("Adjust responseIterator to: %d".format(nodes.keySet.size))
+              distinctResponsesLeft=nodes.keySet.size
+	      //reset the outstanding requests map
+	      setRequests = Map.empty[PartitionedId, Node]
+            }
 
-          nodes.foreach {
-            case (node, idsForNode) => {
-              def callback(a:Either[Throwable, ResponseMsg]):Unit = {
-                a match {
-                  case Left(t) => queue += Left(t)
-                  case Right(r) => queue += Right(Tuple3(node, idsForNode, r))
+            nodes.foreach {
+              case (node, idsForNode) => {
+                def callback(a:Either[Throwable, ResponseMsg]):Unit = {
+                  a match {
+                    case Left(t) => queue += Left(t)
+                    case Right(r) => queue += Right(Tuple3(node, idsForNode, r))
+                  }
                 }
-              }
 
-              val request1 = PartitionedRequest(requestBuilder(node, idsForNode), node, idsForNode, requestBuilder, is, os, Some((a: Either[Throwable, ResponseMsg]) => {callback(a)}), 0, Some(this))
-	            idsForNode.foreach {
-		            case id => setRequests = setRequests + (id -> node)
-	            }
-              sendRequestFunctor(request1)
+                val request1 = PartitionedRequest(requestBuilder(node, idsForNode), node, idsForNode, requestBuilder, is, os, Some((a: Either[Throwable, ResponseMsg]) => {callback(a)}), 0, Some(this))
+	        idsForNode.foreach {
+		  case id => setRequests = setRequests + (id -> node)
+	        }
+                sendRequestFunctor(request1)
+              }
             }
           }
         }
@@ -408,21 +413,21 @@ class SelectiveRetryIterator[PartitionedId, RequestMsg, ResponseMsg](
             case Right(response) => {
               if(isValidQueueEntry(response._1, response._2)) {
                 distinctResponsesLeft=distinctResponsesLeft - 1
-                response._2.foreach {
-		  partitionId => setRequests -= partitionId
-		}
-                return response._3
+                  response._2.foreach {
+		    partitionId => setRequests -= partitionId
+		  }
+                  return response._3
+                }
+              }
+              case Left(exception) => {
+                throw exception
               }
             }
-            case Left(exception) => {
-              throw exception
-            }
-          }
         }
-        case _ => null.asInstanceOf[ResponseMsg]
+          case _ => null.asInstanceOf[ResponseMsg]
       }
     }
-    null.asInstanceOf[ResponseMsg]
+     null.asInstanceOf[ResponseMsg]
   }
 
   def hasNext = {
