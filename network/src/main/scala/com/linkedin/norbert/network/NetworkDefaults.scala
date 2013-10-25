@@ -119,4 +119,9 @@ object NetworkDefaults {
    * if your JMV is running a Security Manager.
    */
   val AVOID_BYTESTRING_COPY = true
+
+  /**
+   * The default timeout for the time between starting iteration and the time we get the last element from iterator.
+   */
+  val DEFAULT_ITERATOR_TIMEOUT:Long = 5000
 }

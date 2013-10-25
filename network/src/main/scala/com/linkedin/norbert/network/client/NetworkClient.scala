@@ -24,6 +24,10 @@ import cluster._
 import network.common._
 import netty.NettyNetworkClient
 
+object NetworkClientConfig {
+  var defaultIteratorTimeout = NetworkDefaults.DEFAULT_ITERATOR_TIMEOUT;
+}
+
 class NetworkClientConfig {
   var clusterClient: ClusterClient = _
   var clientName: String = _
