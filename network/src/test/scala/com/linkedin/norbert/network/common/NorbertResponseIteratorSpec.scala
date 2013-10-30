@@ -225,7 +225,7 @@ class NorbertResponseIteratorSpec extends Specification with Mockito with Sample
         requestBuilderFunctor,
         new DummyInputSerializer[Int, Int],
         new DummyOutputSerializer[Int, Int],
-        Some(new RetryStrategy(100L,2,Some(new RetryStrategy(100L,3)))))
+        Some(new RetryStrategy(100L,2,Some(new RetryStrategy(100L,3,None)))))
 
       iterator.hasNext mustBe true
       iterator.next mustEqual 1000
@@ -303,7 +303,7 @@ class NorbertResponseIteratorSpec extends Specification with Mockito with Sample
         requestBuilderFunctor,
         new DummyInputSerializer[Int, Int],
         new DummyOutputSerializer[Int, Int],
-        Some(new RetryStrategy(200L, 2)), true)
+        Some(new RetryStrategy(200L, 2, None)), true)
 
       val insertQueueLate1 = new Thread(new Runnable {
         def run() {Thread.sleep(100); queue += Right(Tuple3(Node(1, "endpoint", true), Set.empty[Int] + 1, 1000)) }
