@@ -206,7 +206,7 @@ case class PartialIterator[ResponseMsg](inner: ExceptionIterator[ResponseMsg]) e
  * @param nextRetryStrategy This value specifies if there is another retry which we want to specify should prev fail
  * @param initialTimeout This value is used to determine the very first timeout before the first retry kicks in
  */
-class RetryStrategy(var timeoutForRetry: Long, var thresholdNodeFailures: Int, var initialTimeout:Long) {
+class RetryStrategy(var timeoutForRetry: Long, var thresholdNodeFailures: Int, var initialTimeout:Long) extends Logging{
   var nextRetryStrategy: Option[RetryStrategy] = None
 
   def this(timeoutForRetry: Long, thresholdNodeFailures: Int, nextRetryStrategyArg: Option[RetryStrategy], initialTimeout: Long=5000L) {
@@ -220,8 +220,10 @@ class RetryStrategy(var timeoutForRetry: Long, var thresholdNodeFailures: Int, v
    */
   def onTimeout(numNodeFailures: Int):Tuple2[Option[RetryStrategy],Boolean] = {
     if(numNodeFailures <= thresholdNodeFailures) {
+      log.info("RetryStrategy: retry kicked in for %d failures".format(numNodeFailures)) 
       return Tuple2(nextRetryStrategy,true)
-    } 
+    }
+    log.info("RetryStrategy: too many failures %d more than retry threshold".format(numNodeFailures)) 
     return Tuple2(None,false) 
   }
 }
@@ -265,6 +267,8 @@ class SelectiveRetryIterator[PartitionedId, RequestMsg, ResponseMsg](
    * The number of machines/nodes which have not responded so far
    */
   var distinctResponsesLeft: Int = numRequests
+
+  var retryMessage: String = ""
 
   /**
    * This function determines whether an entry received from the queue
@@ -375,13 +379,14 @@ class SelectiveRetryIterator[PartitionedId, RequestMsg, ResponseMsg](
             }
             case None => {
               if (!duplicatesOk)
-                throw new TimeoutException("Timedout waiting for final %d nodes".format(distinctResponsesLeft))
+                throw new TimeoutException("Timedout waiting for final %d nodes, retryInfo:%s ".format(distinctResponsesLeft, retryMessage))
               else
                 throw new TimeoutException("Timedout waiting for final %d partitions to return".format(setRequests.size))
             }
           }
 
 	  if(conditionsRetryMet) {
+            retryMessage = "Retry initiated at %d".format(System.currentTimeMillis) 
 	    //If for a particular partition id only if 10/10 of the replicas are in trouble then quit
             val nodes = calculateNodesFromIds(ids, failedNodes, 10)
 
