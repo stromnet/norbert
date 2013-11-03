@@ -202,7 +202,7 @@ class NetworkServerStatisticsMBeanImpl(clientName: Option[String], serviceName: 
 
   def getMedianTime = toMillis((stats.getStatistics(0.5).map(_.finished.values.map(_.percentile)).flatten.sum))
 
-  def getRequestsPerSecond = toMillis((stats.getStatistics(0.5).map(_.rps().values).flatten.sum)).asInstanceOf[Int]
+  def getRequestsPerSecond = (stats.getStatistics(0.5).map(_.rps().values).flatten.sum)
 
   def getAverageRequestProcessingTime = stats.getStatistics(0.5).map { stats =>
     val total = stats.finished.values.map(_.total).sum
