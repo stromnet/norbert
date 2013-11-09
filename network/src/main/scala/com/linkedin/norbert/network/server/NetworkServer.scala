@@ -99,7 +99,7 @@ trait NetworkServer extends Logging {
             log.debug("Marking node with id %d available".format(nodeId))
             try {
               //clean up the state if any from a previously killed incarnation 
-	      clusterClient.markNodeUnavailable(nodeId) 
+              clusterClient.markNodeUnavailable(nodeId) 
               clusterClient.markNodeAvailable(nodeId, initialCapability)
             } catch {
               case ex: ClusterException => log.error(ex, "Unable to mark node available")
