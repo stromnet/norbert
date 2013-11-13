@@ -220,10 +220,10 @@ class RetryStrategy(var timeoutForRetry: Long, var thresholdNodeFailures: Int, v
    */
   def onTimeout(numNodeFailures: Int):Tuple2[Option[RetryStrategy],Boolean] = {
     if(numNodeFailures <= thresholdNodeFailures) {
-      log.info("RetryStrategy: retry kicked in for %d failures".format(numNodeFailures)) 
+      log.warn("RetryStrategy: retry kicked in for %d failures".format(numNodeFailures))
       return Tuple2(nextRetryStrategy,true)
     }
-    log.info("RetryStrategy: too many failures %d more than retry threshold".format(numNodeFailures)) 
+    log.warn("RetryStrategy: too many failures %d more than retry threshold".format(numNodeFailures))
     return Tuple2(None,false) 
   }
 }
