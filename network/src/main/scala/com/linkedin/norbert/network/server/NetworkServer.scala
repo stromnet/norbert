@@ -130,6 +130,7 @@ trait NetworkServer extends Logging {
           if (markAvailableWhenConnected) {
             log.debug("Marking node with id %d available".format(node.id))
             try {
+              clusterClient.markNodeUnavailable(node.id)
               clusterClient.markNodeAvailable(node.id, initialCapability)
             } catch {
               case ex: ClusterException => log.error(ex, "Unable to mark node available")
