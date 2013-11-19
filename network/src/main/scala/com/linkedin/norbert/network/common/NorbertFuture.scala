@@ -34,9 +34,36 @@ class ResponseQueue[ResponseMsg] extends java.util.concurrent.LinkedBlockingQueu
   }
 }
 
+trait ListenableFuture {
+  def addListener(listener:Runnable, executor:Executor)
+}
+
+class FutureAdapterListener[ResponseMsg] extends FutureAdapter[ResponseMsg] with ListenableFuture {
+  @volatile var mListener: Runnable = null
+  @volatile var mExecutor: Executor = null
+  def addListener(listener:Runnable, executor:Executor) {
+    synchronized {
+      mListener = listener
+      mExecutor = executor
+      if(isDone)  {
+        executor.execute(listener)
+      }
+    }
+  }
+
+  override def apply(callback: Either[Throwable, ResponseMsg]): Unit = {
+    synchronized {
+      super.apply(callback)
+      if(mListener != null) {
+        mExecutor.execute(mListener)
+      }
+    }
+  }
+}
+
 class FutureAdapter[ResponseMsg] extends Future[ResponseMsg] with Function1[Either[Throwable, ResponseMsg], Unit] with ResponseHelper {
-  private val latch = new CountDownLatch(1)
-  @volatile private var response: Either[Throwable, ResponseMsg] = null
+  protected val latch = new CountDownLatch(1)
+  @volatile protected var response: Either[Throwable, ResponseMsg] = null
 
   override def apply(callback: Either[Throwable, ResponseMsg]): Unit = {
     response = callback

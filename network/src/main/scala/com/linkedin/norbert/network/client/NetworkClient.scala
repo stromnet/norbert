@@ -43,6 +43,7 @@ class NetworkClientConfig {
   var staleRequestCleanupFrequenceMins = NetworkDefaults.STALE_REQUEST_CLEANUP_FREQUENCY_MINS
 
   var retryStrategy:Option[RetryStrategy] = None
+  var duplicatesOk:Boolean = false
 
   /**
    * Represents how long a channel stays alive. There are some specifics:

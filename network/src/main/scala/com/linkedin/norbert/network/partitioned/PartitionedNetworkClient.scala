@@ -32,7 +32,6 @@ object PartitionedNetworkClient {
   def apply[PartitionedId](config: NetworkClientConfig, loadBalancerFactory: PartitionedLoadBalancerFactory[PartitionedId]): PartitionedNetworkClient[PartitionedId] = {
     val nc = new NettyPartitionedNetworkClient(config, loadBalancerFactory)
     nc.start
-    PartitionedNetworkClient.retryStrategy = config.retryStrategy
     nc
   }
 
@@ -45,14 +44,22 @@ object PartitionedNetworkClient {
     nc.start
     nc
   }
-  var retryStrategy: Option[RetryStrategy] = None
 }
 
 /**
  * The network client interface for interacting with nodes in a partitioned cluster.
  */
 trait PartitionedNetworkClient[PartitionedId] extends BaseNetworkClient {
+
   this: ClusterClientComponent with ClusterIoClientComponent  with PartitionedLoadBalancerFactoryComponent[PartitionedId] =>
+
+  var duplicatesOk:Boolean = false
+  var retryStrategy:Option[RetryStrategy] = None
+  def setConfig(config:NetworkClientConfig): Unit = {
+    duplicatesOk = config.duplicatesOk
+    if(retryStrategy != null)
+      retryStrategy = config.retryStrategy
+  }
 
   @volatile private var loadBalancer: Option[Either[InvalidClusterException, PartitionedLoadBalancer[PartitionedId]]] = None
 
@@ -266,7 +273,7 @@ trait PartitionedNetworkClient[PartitionedId] extends BaseNetworkClient {
                                           (implicit is: InputSerializer[RequestMsg, ResponseMsg], os: OutputSerializer[RequestMsg, ResponseMsg]): ResponseIterator[ResponseMsg] = doIfConnected {
     if (ids == null || requestBuilder == null) throw new NullPointerException
     val nodes = calculateNodesFromIds(ids, capability, persistentCapability)
-    if (nodes.size <= 1 || PartitionedNetworkClient.retryStrategy == None) {
+    if (nodes.size <= 1 || retryStrategy == None) {
       val queue = new ResponseQueue[ResponseMsg]
       val resIter = new NorbertDynamicResponseIterator[ResponseMsg](nodes.size, queue)
       nodes.foreach { case (node, idsForNode) =>
@@ -296,8 +303,9 @@ trait PartitionedNetworkClient[PartitionedId] extends BaseNetworkClient {
       }
 
       val resIter = new SelectiveRetryIterator[PartitionedId, RequestMsg, ResponseMsg](
-                    nodes.size, PartitionedNetworkClient.retryStrategy.get.initialTimeout, doSendRequest, setRequests,
-                    queue, calculateNodesFromIdsSRetry, requestBuilder, is, os, PartitionedNetworkClient.retryStrategy)
+                    nodes.size, retryStrategy.get.initialTimeout, doSendRequest, setRequests,
+                    queue, calculateNodesFromIdsSRetry, requestBuilder, is, os, retryStrategy,
+                    duplicatesOk)
 
       nodes.foreach {
         case (node, idsForNode) => {

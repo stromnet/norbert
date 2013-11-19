@@ -19,11 +19,31 @@ package common
 
 import org.specs.Specification
 import org.specs.mock.Mockito
-import java.util.concurrent.{TimeoutException, ExecutionException, TimeUnit}
+import java.util.concurrent.{TimeoutException, ExecutionException, TimeUnit, Executor, LinkedBlockingQueue, Executors}
 import scala.Right
 
+class CurrentThreadExecutor extends Executor {
+    def execute(r:Runnable) = {
+        r.run();
+    }
+}
+
 class NorbertFutureSpec extends Specification with Mockito with SampleMessage {
-  val future = new FutureAdapter[Ping]
+  case class ResponseExceptionWrapper(exception:ExecutionException, ping: Ping, isException:Boolean)
+  //val future = new FutureAdapter[Ping]
+  val future = new FutureAdapterListener[Ping]
+  val queue = new LinkedBlockingQueue[ResponseExceptionWrapper]()
+  future.addListener(new Runnable() {
+    def run = {
+      try {
+        val result = future.get
+        queue.offer(ResponseExceptionWrapper(null, result, false))
+      } catch {
+        case e:ExecutionException => queue.offer(ResponseExceptionWrapper(e, null, true))
+      }
+    }
+  }, Executors.newFixedThreadPool(1)
+  )
 
   "NorbertFuture" should {
     "not be done when created" in {
@@ -33,6 +53,29 @@ class NorbertFutureSpec extends Specification with Mockito with SampleMessage {
     "be done when value is set" in {
       future.apply(Right(new Ping))
       future.isDone must beTrue
+      queue.size must be(1)
+    }
+
+    "be done when value is set" in {
+      val future = new FutureAdapterListener[Ping]
+      val queue = new LinkedBlockingQueue[ResponseExceptionWrapper]()
+
+      val msg = new Ping
+      future.apply(Right(msg))
+      future.isDone must beTrue
+      queue.size must be(0)
+      future.addListener(new Runnable() {
+        def run = {
+          try {
+            val result = future.get
+            queue.offer(ResponseExceptionWrapper(null, result, false))
+          } catch {
+          case e:ExecutionException => queue.offer(ResponseExceptionWrapper(e, null, true))
+          }
+        }
+      }, Executors.newFixedThreadPool(1))
+      queue.size must be(1)
+      queue.poll mustEqual ResponseExceptionWrapper(null, msg, false)
     }
 
     "return the value that is set" in {
@@ -51,6 +94,9 @@ class NorbertFutureSpec extends Specification with Mockito with SampleMessage {
       future.apply(Left(ex))
       future.get must throwA[ExecutionException]
       future.get(1, TimeUnit.MILLISECONDS) must throwA[ExecutionException]
+      queue.size must be(1)
+      val response: ResponseExceptionWrapper = queue.poll
+      response.isException mustEqual true
     }
   }
 }
