@@ -43,7 +43,7 @@ trait ListenableFuture {
  * If the underlying async request completes with success then we will get onCompleted handler invoked
  * Else the onThrowable handler will get invoked. Timeouts need to be handled outside of this.
  */
-abstract class BaseTask[ResponseMsg] {
+abstract class PromiseListener[ResponseMsg] {
   /**
    * Depending on the timing this method   
    * could execute in the calling thread
@@ -65,8 +65,8 @@ abstract class BaseTask[ResponseMsg] {
 }
 
 class FutureAdapterListener[ResponseMsg] extends FutureAdapter[ResponseMsg] {
-  @volatile var mListener: BaseTask[ResponseMsg] = null
-  def addListener(listener:BaseTask[ResponseMsg]) {
+  @volatile var mListener: PromiseListener[ResponseMsg] = null
+  def addListener(listener: PromiseListener[ResponseMsg]) {
     synchronized {
       mListener = listener
       if(isDone)  {

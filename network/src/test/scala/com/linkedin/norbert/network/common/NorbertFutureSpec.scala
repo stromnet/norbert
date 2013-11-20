@@ -30,7 +30,7 @@ class CurrentThreadExecutor extends Executor {
 
 class NorbertFutureSpec extends Specification with Mockito with SampleMessage {
   case class ResponseExceptionWrapper(exception:ExecutionException, ping: Ping, isException:Boolean)
-  class Task(queue: LinkedBlockingQueue[ResponseExceptionWrapper]) extends BaseTask[Ping] {
+  class Task(queue: LinkedBlockingQueue[ResponseExceptionWrapper]) extends PromiseListener[Ping] {
     override def onCompleted(response: Ping):Unit = {
       queue.offer(ResponseExceptionWrapper(null, response, false))
     }
