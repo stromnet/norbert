@@ -75,7 +75,7 @@ class FutureAdapterListener[ResponseMsg] extends FutureAdapter[ResponseMsg] {
         response match {
           case Left(t) => listener.onThrowable(t)
           case Right(response) => listener.onCompleted(response)
-          case _ => new IllegalStateException("Response was neither throwable nor an exception")
+          case _ => listener.onThrowable(new IllegalStateException("Response was neither throwable nor an exception"))
         }
       }
     }
@@ -90,7 +90,7 @@ class FutureAdapterListener[ResponseMsg] extends FutureAdapter[ResponseMsg] {
         response match {
           case Left(t) => mListener.onThrowable(t)
           case Right(response) => mListener.onCompleted(response)
-          case _ => log.fatal("Response was neither throwable nor an exception")
+          case _ => mListener.onThrowable(new IllegalStateException("Response was neither throwable nor an exception"))
         }
       }
     }
