@@ -30,20 +30,18 @@ class CurrentThreadExecutor extends Executor {
 
 class NorbertFutureSpec extends Specification with Mockito with SampleMessage {
   case class ResponseExceptionWrapper(exception:ExecutionException, ping: Ping, isException:Boolean)
+  class Task(queue: LinkedBlockingQueue[ResponseExceptionWrapper]) extends BaseTask[Ping] {
+    override def onCompleted(response: Ping):Unit = {
+      queue.offer(ResponseExceptionWrapper(null, response, false))
+    }
+    override def onThrowable(t: Throwable):Unit = {
+      queue.offer(ResponseExceptionWrapper(new ExecutionException(t), null, true))
+    }
+  }
   //val future = new FutureAdapter[Ping]
   val future = new FutureAdapterListener[Ping]
   val queue = new LinkedBlockingQueue[ResponseExceptionWrapper]()
-  future.addListener(new Runnable() {
-    def run = {
-      try {
-        val result = future.get
-        queue.offer(ResponseExceptionWrapper(null, result, false))
-      } catch {
-        case e:ExecutionException => queue.offer(ResponseExceptionWrapper(e, null, true))
-      }
-    }
-  }, Executors.newFixedThreadPool(1)
-  )
+  future.addListener(new Task(queue))
 
   "NorbertFuture" should {
     "not be done when created" in {
@@ -64,16 +62,7 @@ class NorbertFutureSpec extends Specification with Mockito with SampleMessage {
       future.apply(Right(msg))
       future.isDone must beTrue
       queue.size must be(0)
-      future.addListener(new Runnable() {
-        def run = {
-          try {
-            val result = future.get
-            queue.offer(ResponseExceptionWrapper(null, result, false))
-          } catch {
-          case e:ExecutionException => queue.offer(ResponseExceptionWrapper(e, null, true))
-          }
-        }
-      }, Executors.newFixedThreadPool(1))
+      future.addListener(new Task(queue))
       queue.size must be(1)
       queue.poll mustEqual ResponseExceptionWrapper(null, msg, false)
     }

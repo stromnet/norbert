@@ -38,28 +38,65 @@ trait ListenableFuture {
   def addListener(listener:Runnable, executor:Executor)
 }
 
-class FutureAdapterListener[ResponseMsg] extends FutureAdapter[ResponseMsg] with ListenableFuture {
-  @volatile var mListener: Runnable = null
-  @volatile var mExecutor: Executor = null
-  def addListener(listener:Runnable, executor:Executor) {
+/**
+ *
+ * If the underlying async request completes with success then we will get onCompleted handler invoked
+ * Else the onThrowable handler will get invoked. Timeouts need to be handled outside of this.
+ */
+abstract class BaseTask[ResponseMsg] {
+  /**
+   * Depending on the timing this method   
+   * could execute in the calling thread
+   * of addListener or in the norbert client
+   * thread. Fork another thread if this
+   * is going to be a heavy call.  
+   */
+  def onCompleted(response: ResponseMsg):Unit = {
+  }
+  /**
+   * Depending on the timing this method 
+   * could execute in the calling thread 
+   * of addListener or in the norbert client       
+   * thread. Fork another thread if this
+   * is going to be a heavy call.
+   */
+  def onThrowable(t: Throwable):Unit = {
+  }
+}
+
+class FutureAdapterListener[ResponseMsg] extends FutureAdapter[ResponseMsg] {
+  @volatile var mListener: BaseTask[ResponseMsg] = null
+  def addListener(listener:BaseTask[ResponseMsg]) {
     synchronized {
       mListener = listener
-      mExecutor = executor
       if(isDone)  {
-        executor.execute(listener)
+      //callback is now going to be invoked in the context of calling thread
+      //we can hence afford to propagate an exception to the calling thread
+        response match {
+          case Left(t) => listener.onThrowable(t)
+          case Right(response) => listener.onCompleted(response)
+          case _ => new IllegalStateException("Response was neither throwable nor an exception")
+        }
       }
     }
   }
 
   override def apply(callback: Either[Throwable, ResponseMsg]): Unit = {
+    super.apply(callback)
     synchronized {
-      super.apply(callback)
       if(mListener != null) {
-        mExecutor.execute(mListener)
+      //callback is now going to be invoked in the context of norbert client thread pool
+      //we cannot afford to propagate an exception here log fatal error here
+        response match {
+          case Left(t) => mListener.onThrowable(t)
+          case Right(response) => mListener.onCompleted(response)
+          case _ => log.fatal("Response was neither throwable nor an exception")
+        }
       }
     }
   }
 }
+
 
 class FutureAdapter[ResponseMsg] extends Future[ResponseMsg] with Function1[Either[Throwable, ResponseMsg], Unit] with ResponseHelper {
   protected val latch = new CountDownLatch(1)
