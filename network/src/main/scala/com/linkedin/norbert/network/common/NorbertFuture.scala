@@ -70,8 +70,6 @@ class FutureAdapterListener[ResponseMsg] extends FutureAdapter[ResponseMsg] {
     synchronized {
       mListener = listener
       if(isDone)  {
-      //callback is now going to be invoked in the context of calling thread
-      //we can hence afford to propagate an exception to the calling thread
         response match {
           case Left(t) => listener.onThrowable(t)
           case Right(response) => listener.onCompleted(response)
@@ -85,8 +83,6 @@ class FutureAdapterListener[ResponseMsg] extends FutureAdapter[ResponseMsg] {
     super.apply(callback)
     synchronized {
       if(mListener != null) {
-      //callback is now going to be invoked in the context of norbert client thread pool
-      //we cannot afford to propagate an exception here log fatal error here
         response match {
           case Left(t) => mListener.onThrowable(t)
           case Right(response) => mListener.onCompleted(response)
