@@ -34,9 +34,69 @@ class ResponseQueue[ResponseMsg] extends java.util.concurrent.LinkedBlockingQueu
   }
 }
 
+trait ListenableFuture {
+  def addListener(listener:Runnable, executor:Executor)
+}
+
+/**
+ *
+ * If the underlying async request completes with success then we will get onCompleted handler invoked
+ * Else the onThrowable handler will get invoked. Timeouts need to be handled outside of this.
+ */
+abstract class PromiseListener[ResponseMsg] {
+  /**
+   * Depending on the timing this method   
+   * could execute in the calling thread
+   * of addListener or in the norbert client
+   * thread. Fork another thread if this
+   * is going to be a heavy call.  
+   */
+  def onCompleted(response: ResponseMsg):Unit = {
+  }
+  /**
+   * Depending on the timing this method 
+   * could execute in the calling thread 
+   * of addListener or in the norbert client       
+   * thread. Fork another thread if this
+   * is going to be a heavy call.
+   */
+  def onThrowable(t: Throwable):Unit = {
+  }
+}
+
+class FutureAdapterListener[ResponseMsg] extends FutureAdapter[ResponseMsg] {
+  @volatile var mListener: PromiseListener[ResponseMsg] = null
+  def addListener(listener: PromiseListener[ResponseMsg]) {
+    synchronized {
+      mListener = listener
+      if(isDone)  {
+        response match {
+          case Left(t) => listener.onThrowable(t)
+          case Right(response) => listener.onCompleted(response)
+          case _ => listener.onThrowable(new IllegalStateException("Response was neither throwable nor an exception"))
+        }
+      }
+    }
+  }
+
+  override def apply(callback: Either[Throwable, ResponseMsg]): Unit = {
+    super.apply(callback)
+    synchronized {
+      if(mListener != null) {
+        response match {
+          case Left(t) => mListener.onThrowable(t)
+          case Right(response) => mListener.onCompleted(response)
+          case _ => mListener.onThrowable(new IllegalStateException("Response was neither throwable nor an exception"))
+        }
+      }
+    }
+  }
+}
+
+
 class FutureAdapter[ResponseMsg] extends Future[ResponseMsg] with Function1[Either[Throwable, ResponseMsg], Unit] with ResponseHelper {
-  private val latch = new CountDownLatch(1)
-  @volatile private var response: Either[Throwable, ResponseMsg] = null
+  protected val latch = new CountDownLatch(1)
+  @volatile protected var response: Either[Throwable, ResponseMsg] = null
 
   override def apply(callback: Either[Throwable, ResponseMsg]): Unit = {
     response = callback
@@ -381,21 +441,21 @@ class SelectiveRetryIterator[PartitionedId, RequestMsg, ResponseMsg](
               if (!duplicatesOk)
                 throw new TimeoutException("Timedout waiting for final %d nodes, retryInfo:%s ".format(distinctResponsesLeft, retryMessage))
               else
-                throw new TimeoutException("Timedout waiting for final %d partitions to return".format(setRequests.size))
+                throw new TimeoutException("Timedout waiting for final %d partitions to return, retryInfo:%s ".format(setRequests.size, retryMessage))
             }
           }
 
-	  if(conditionsRetryMet) {
+          if(conditionsRetryMet) {
             retryMessage = "Retry initiated at %d".format(System.currentTimeMillis) 
-	    //If for a particular partition id only if 10/10 of the replicas are in trouble then quit
+            //If for a particular partition id only if 10/10 of the replicas are in trouble then quit
             val nodes = calculateNodesFromIds(ids, failedNodes, 10)
 
             if(duplicatesOk != true) {
               //only the responses from these new requests count
               log.debug("Adjust responseIterator to: %d".format(nodes.keySet.size))
               distinctResponsesLeft=nodes.keySet.size
-	      //reset the outstanding requests map
-	      setRequests = Map.empty[PartitionedId, Node]
+              //reset the outstanding requests map
+              setRequests = Map.empty[PartitionedId, Node]
             }
 
             nodes.foreach {
@@ -408,10 +468,10 @@ class SelectiveRetryIterator[PartitionedId, RequestMsg, ResponseMsg](
                 }
 
                 val request1 = PartitionedRequest(requestBuilder(node, idsForNode), node, idsForNode, requestBuilder, is, os, Some((a: Either[Throwable, ResponseMsg]) => {callback(a)}), 0, Some(this))
-	        idsForNode.foreach {
-		  case id => setRequests = setRequests + (id -> node)
-	        }
-                sendRequestFunctor(request1)
+               idsForNode.foreach {
+                 case id => setRequests = setRequests + (id -> node)
+               }
+               sendRequestFunctor(request1)
               }
             }
           }
@@ -423,9 +483,9 @@ class SelectiveRetryIterator[PartitionedId, RequestMsg, ResponseMsg](
             case Right(response) => {
               if(isValidQueueEntry(response._1, response._2)) {
                 distinctResponsesLeft=distinctResponsesLeft - 1
-                  response._2.foreach {
-		    partitionId => setRequests -= partitionId
-		  }
+                response._2.foreach {
+                  partitionId => setRequests -= partitionId
+                }
                   return response._3
                 }
               }
@@ -441,11 +501,15 @@ class SelectiveRetryIterator[PartitionedId, RequestMsg, ResponseMsg](
   }
 
   def hasNext = {
-    if(!duplicatesOk)
-      distinctResponsesLeft != 0
-    else {
-      setRequests.isEmpty != true
+    val returnVal = {
+      if(!duplicatesOk)
+        distinctResponsesLeft != 0
+      else {
+        setRequests.isEmpty != true
+      }
     }
+    log.warn("Completed processing the scatter gather: retryInfo:%s".format(retryMessage))
+    returnVal
   }
 }
 

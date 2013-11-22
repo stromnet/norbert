@@ -42,7 +42,6 @@ class NetworkClientConfig {
   var staleRequestTimeoutMins = NetworkDefaults.STALE_REQUEST_TIMEOUT_MINS
   var staleRequestCleanupFrequenceMins = NetworkDefaults.STALE_REQUEST_CLEANUP_FREQUENCY_MINS
 
-
   /**
    * Represents how long a channel stays alive. There are some specifics:
    * closeChannelTimeMillis < 0: Channel stays alive forever
@@ -64,6 +63,7 @@ class NetworkClientConfig {
   var avoidByteStringCopy = NetworkDefaults.AVOID_BYTESTRING_COPY
 
   var retryStrategy:Option[RetryStrategy] = None 
+  var duplicatesOk:Boolean = false
 }
 
 object NetworkClient {
