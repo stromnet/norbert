@@ -508,7 +508,8 @@ class SelectiveRetryIterator[PartitionedId, RequestMsg, ResponseMsg](
         setRequests.isEmpty != true
       }
     }
-    log.warn("Completed processing the scatter gather: retryInfo:%s".format(retryMessage))
+    if(!returnVal)
+      log.warn("Completed processing the scatter gather: retryInfo:%s".format(retryMessage))
     returnVal
   }
 }
