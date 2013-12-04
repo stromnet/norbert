@@ -134,6 +134,10 @@ trait NetworkClient extends BaseNetworkClient {
   (implicit is: InputSerializer[RequestMsg, ResponseMsg], os: OutputSerializer[RequestMsg, ResponseMsg]): Future[ResponseMsg] =
     sendRequest(request, None, None)
 
+  def sendRequest[RequestMsg, ResponseMsg](request: RequestMsg, maxRetry:Int)
+  (implicit is: InputSerializer[RequestMsg, ResponseMsg], os: OutputSerializer[RequestMsg, ResponseMsg]): Future[ResponseMsg] =
+    sendRequest(request, maxRetry, None, None)
+
   def sendRequest[RequestMsg, ResponseMsg](request: RequestMsg, capability: Option[Long])
   (implicit is: InputSerializer[RequestMsg, ResponseMsg], os: OutputSerializer[RequestMsg, ResponseMsg]): Future[ResponseMsg] = {
     sendRequest(request, capability, None)
@@ -143,6 +147,20 @@ trait NetworkClient extends BaseNetworkClient {
   (implicit is: InputSerializer[RequestMsg, ResponseMsg], os: OutputSerializer[RequestMsg, ResponseMsg]): Future[ResponseMsg] = {
     val future = new FutureAdapterListener[ResponseMsg]
     sendRequest(request, future, capability, persistentCapability)
+    future
+  }
+
+  def sendRequest[RequestMsg, ResponseMsg](request: RequestMsg, maxRetry: Int, capability: Option[Long])
+  (implicit is: InputSerializer[RequestMsg, ResponseMsg], os: OutputSerializer[RequestMsg, ResponseMsg]): Future[ResponseMsg] = {
+    val future = new FutureAdapterListener[ResponseMsg]
+    sendRequest(request, future, maxRetry, capability, None)
+    future
+  }
+
+  def sendRequest[RequestMsg, ResponseMsg](request: RequestMsg, maxRetry: Int, capability: Option[Long], persistentCapability: Option[Long])
+  (implicit is: InputSerializer[RequestMsg, ResponseMsg], os: OutputSerializer[RequestMsg, ResponseMsg]): Future[ResponseMsg] = {
+    val future = new FutureAdapterListener[ResponseMsg]
+    sendRequest(request, future, maxRetry, capability, persistentCapability)
     future
   }
 
