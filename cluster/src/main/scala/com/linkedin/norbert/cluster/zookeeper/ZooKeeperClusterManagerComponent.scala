@@ -18,7 +18,7 @@ package cluster
 package zookeeper
 
 import common.{ClusterNotificationManagerComponent, ClusterManagerComponent, ClusterManagerHelper}
-import logging.Logging
+import logging.{Logging, Logger}
 import actors.Actor
 import Actor._
 import java.io.IOException
@@ -294,7 +294,7 @@ trait ZooKeeperClusterManagerComponent extends ClusterManagerComponent {
 
     private def startZooKeeper {
       zooKeeper = try {
-        watcher = new ClusterWatcher(self)
+        watcher = new ClusterWatcher(self, log)
         val zk = Some(zooKeeperFactory(connectString, sessionTimeout, watcher))
         log.info("Connected to ZooKeeper")
         zk
@@ -441,7 +441,7 @@ trait ZooKeeperClusterManagerComponent extends ClusterManagerComponent {
 
   protected implicit def defaultZooKeeperFactory(connectString: String, sessionTimeout: Int, watcher: Watcher) = new ZooKeeper(connectString, sessionTimeout, watcher)
 
-  class ClusterWatcher(zooKeeperManager: Actor) extends Watcher {
+  class ClusterWatcher(zooKeeperManager: Actor, log: Logger) extends Watcher {
     @volatile private var shutdownSwitch = false
 
     def process(event: WatchedEvent) {
@@ -461,6 +461,8 @@ trait ZooKeeperClusterManagerComponent extends ClusterManagerComponent {
         case EventType.NodeChildrenChanged => zooKeeperManager ! NodeChildrenChanged(event.getPath)
 
         case EventType.NodeDataChanged => zooKeeperManager ! NodeDataChanged(event.getPath)
+
+		  case m => log.error("Received unknown Zookeeper WatchedEvent %s for path %s (state = %s)".format(m, event.getPath, event.getState))
       }
     }
 
