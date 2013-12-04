@@ -446,6 +446,7 @@ trait ZooKeeperClusterManagerComponent extends ClusterManagerComponent {
 
     def process(event: WatchedEvent) {
       import org.apache.zookeeper.Watcher.Event.{EventType, KeeperState}
+      import scala.MatchError
       import ZooKeeperMessages._
 
       if (shutdownSwitch) return
@@ -462,7 +463,9 @@ trait ZooKeeperClusterManagerComponent extends ClusterManagerComponent {
 
         case EventType.NodeDataChanged => zooKeeperManager ! NodeDataChanged(event.getPath)
 
-		  case m => log.error("Received unknown Zookeeper WatchedEvent %s for path %s (state = %s)".format(m, event.getPath, event.getState))
+        case m =>
+         if(log != null) log.error("Received unknown Zookeeper WatchedEvent %s for path %s (state = %s)".format(m, event.getPath, event.getState))
+         else throw new MatchError(m)
       }
     }
 

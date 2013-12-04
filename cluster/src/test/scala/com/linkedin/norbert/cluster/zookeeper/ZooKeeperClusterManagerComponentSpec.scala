@@ -951,7 +951,7 @@ class ZooKeeperClusterManagerComponentSpec extends Specification with Mockito wi
       }
     }
 
-    val clusterWatcher = new ClusterWatcher(zkm)
+    val clusterWatcher = new ClusterWatcher(zkm, null)
 
     def newEvent(state: KeeperState) = {
       val event = mock[WatchedEvent]
