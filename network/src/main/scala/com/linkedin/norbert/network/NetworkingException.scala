@@ -33,7 +33,10 @@ class NetworkShutdownException extends NetworkingException
 /**
  * Exception that indicates that an exception occurred remotely while processing a request.
  */
-class RemoteException(className: String, errorMsg: String) extends NetworkingException("The remote end threw an exception [%s]: %s".format(className, errorMsg))
+class RemoteException(className: String, errorMsg: String) extends NetworkingException("The remote end threw an exception [%s]: %s".format(className, errorMsg)){
+	/* Access to the original error message as sent in response */
+	def getRemoteErrorMessage(): String = errorMsg
+}
 
 /**
  * Exception that indicates that a message was received which was not registered with the <code>MessageRegistry</code>.
