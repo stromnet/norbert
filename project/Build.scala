@@ -16,7 +16,7 @@ object BuildSettings {
   val buildSettings = Defaults.defaultSettings ++ Seq (
     organization := "com.linkedin",
     version      := "0.6.45",
-    scalaVersion := "2.8.1",
+    scalaVersion := "2.8.2",
     credentialsSetting,
     publishArtifact in (Compile, packageDoc) := false,
     publishTo <<= (version) { version: String =>
@@ -49,7 +49,7 @@ object ClusterDependencies {
 
   val log4j = "log4j" % "log4j" % LOG4J_VER
 
-  val specs = "org.scala-tools.testing" %% "specs" % SPECS_VER % "test"
+  val specs = "org.scala-tools.testing" % "specs_2.8.1" % SPECS_VER % "test"
 
   val mockito = "org.mockito" % "mockito-all" % MOCKITO_VER % "test"
 
