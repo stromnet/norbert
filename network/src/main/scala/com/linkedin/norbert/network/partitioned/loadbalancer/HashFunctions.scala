@@ -37,8 +37,7 @@ object HashFunctions {
     try {
       val md = MessageDigest.getInstance("MD5")
       val kbytes: Array[Byte] = md.digest(bytes)
-      val hc = (kbytes(3) & 0xFF) << 24 | (kbytes(2) & 0xFF) << 16 | (kbytes(1) & 0xFF) << 8 | kbytes(0) & 0xFF
-      math.abs(hc)
+      (kbytes(3) & 0xFF) << 24 | (kbytes(2) & 0xFF) << 16 | (kbytes(1) & 0xFF) << 8 | kbytes(0) & 0xFF
     } catch {
       case e: Exception => throw new RuntimeException(e.getMessage, e)
     }
