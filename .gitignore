@@ -1,3 +1,4 @@
+bin/
 target/
 lib_managed/
 src_managed/
@@ -9,3 +10,4 @@ build/
 *.iml
 *.ipr
 *.iws
+*.swp
