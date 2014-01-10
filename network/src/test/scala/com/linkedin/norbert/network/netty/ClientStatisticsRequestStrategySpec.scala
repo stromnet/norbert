@@ -24,11 +24,13 @@ import com.linkedin.norbert.cluster.Node
 import com.linkedin.norbert.network.common.CachedNetworkStatistics
 
 class ClientStatisticsRequestStrategySpec extends Specification with Mockito {
+  val mockClock = new MockClock
+
   "ClientStatisticsRequestStrategy" should {
     "route away from misbehaving nodes" in {
-      val statsActor = CachedNetworkStatistics[Node, UUID](MockClock, 1000L, 200L)
+      val statsActor = CachedNetworkStatistics[Node, UUID](mockClock, 1000L, 200L)
 
-      val strategy = new ClientStatisticsRequestStrategy(statsActor, 2.0, 10.0, MockClock)
+      val strategy = new ClientStatisticsRequestStrategy(statsActor, 2.0, 10.0, mockClock)
 
       val nodes = (0 until 5).map { nodeId => Node(nodeId, "foo", true) }
 
@@ -40,7 +42,7 @@ class ClientStatisticsRequestStrategySpec extends Specification with Mockito {
       }.toMap
 
       nodes.dropRight(1).foreach{ node =>
-        MockClock.currentTime = (node.id + 1)
+        mockClock.currentTime = (node.id + 1)
 
         val uuids = requests(node)
         uuids.zipWithIndex.foreach { case (uuid, index) =>
@@ -48,14 +50,14 @@ class ClientStatisticsRequestStrategySpec extends Specification with Mockito {
         }
       }
 
-      MockClock.currentTime = 5
+      mockClock.currentTime = 5
 
       nodes.foreach { node =>
         strategy.canServeRequest(node) must beTrue
         
       }
 
-      MockClock.currentTime = 15
+      mockClock.currentTime = 15
       strategy.canServeRequest(nodes(4)) must beTrue
 
 //      requests(4).zipWithIndex.foreach { case(uuid, index) =>
