@@ -55,13 +55,22 @@ trait NetworkServer extends Logging {
   /**
    * Binds the network server instance to the wildcard address and the port of the <code>Node</code> identified
    * by the unique URL (machine and port) of the machine. It will look through all nodes in zookeeper to identify it's
+   * own nodeId. There may be issues with this for machines with multiple interfaces, etc as it uses InetAddress.getLocalHost.
+   *
+   * @throws InvalidNodeException thrown if no <code>Node</code> with the specified machine's URL is configured in zookeeper
+   * @throws NetworkingException thrown if unable to bind
+   */
+  def bindByPort(port: Int): Unit = bindByUrl(InetAddress.getLocalHost.getCanonicalHostName, port)
+
+  /**
+   * Binds the network server instance to the wildcard address and the port of the <code>Node</code> identified
+   * by the unique URL (machine and port) of the machine. It will look through all nodes in zookeeper to identify it's
    * own nodeId.
    *
    * @throws InvalidNodeException thrown if no <code>Node</code> with the specified machine's URL is configured in zookeeper
    * @throws NetworkingException thrown if unable to bind
    */
-  def bindByPort(port: Int): Unit = {
-    val hostname = InetAddress.getLocalHost.getCanonicalHostName
+  def bindByUrl(hostname: String, port: Int): Unit = {
     log.debug("Ensuring ClusterClient is started")
     clusterClient.start
     clusterClient.awaitConnectionUninterruptibly
