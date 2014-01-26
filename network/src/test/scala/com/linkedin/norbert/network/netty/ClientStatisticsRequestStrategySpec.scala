@@ -16,14 +16,14 @@
 
 package com.linkedin.norbert.network.netty
 
-import org.specs.Specification
+import org.specs.SpecificationWithJUnit
 import org.specs.mock.Mockito
 import java.util.UUID
 import com.linkedin.norbert.norbertutils.MockClock
 import com.linkedin.norbert.cluster.Node
 import com.linkedin.norbert.network.common.CachedNetworkStatistics
 
-class ClientStatisticsRequestStrategySpec extends Specification with Mockito {
+class ClientStatisticsRequestStrategySpec extends SpecificationWithJUnit with Mockito {
   val mockClock = new MockClock
 
   "ClientStatisticsRequestStrategy" should {

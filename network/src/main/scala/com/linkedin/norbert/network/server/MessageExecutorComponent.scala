@@ -189,7 +189,7 @@ class ThreadPoolMessageExecutor(clientName: Option[String],
 
     def getTotalNumRejected = totalNumRejected.get.abs
 
-    def getMedianTime = stats.getStatistics(0.5).map(_.finished.values.map(_.percentile)).flatten.sum
+    def getMedianTime = stats.getStatistics(0.5).map(_.finished.values.map(_.percentile).sum).getOrElse(0.0)
 
     def getCurrentPoolSize = threadPool.getPoolSize
 

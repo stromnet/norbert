@@ -2,14 +2,14 @@ package com.linkedin.norbert
 package network
 package common
 
-import org.specs.Specification
+import org.specs.SpecificationWithJUnit
 import org.specs.mock.Mockito
 import java.util.concurrent.{ExecutionException, TimeoutException, TimeUnit}
 import java.util
 import com.linkedin.norbert.cluster.Node
 import com.linkedin.norbert.network._
 
-class NorbertResponseIteratorSpec extends Specification with Mockito with SampleMessage {
+class NorbertResponseIteratorSpec extends SpecificationWithJUnit with Mockito with SampleMessage {
   val responseQueue = new ResponseQueue[Ping]
   val it = new NorbertResponseIterator[Ping](2, responseQueue)
 

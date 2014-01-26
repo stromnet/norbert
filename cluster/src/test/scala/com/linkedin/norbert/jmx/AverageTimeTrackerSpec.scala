@@ -16,10 +16,10 @@
 package com.linkedin.norbert
 package jmx
 
-import org.specs.Specification
+import org.specs.SpecificationWithJUnit
 import norbertutils.{SystemClock, MockClock, Clock, ClockComponent}
 
-class AverageTimeTrackerSpec extends Specification {
+class AverageTimeTrackerSpec extends SpecificationWithJUnit {
   val mockClock = new MockClock
 
   "RequestTimeTracker" should {
