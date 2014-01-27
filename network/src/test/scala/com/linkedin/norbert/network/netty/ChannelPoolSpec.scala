@@ -17,7 +17,7 @@ package com.linkedin.norbert
 package network
 package netty
 
-import org.specs.Specification
+import org.specs.SpecificationWithJUnit
 import org.jboss.netty.bootstrap.ClientBootstrap
 import org.jboss.netty.channel.group.{ChannelGroupFuture, ChannelGroup}
 import org.specs.mock.Mockito
@@ -27,7 +27,7 @@ import java.util.concurrent.{TimeoutException, TimeUnit}
 import java.net.InetSocketAddress
 import norbertutils.MockClock
 
-class ChannelPoolSpec extends Specification with Mockito {
+class ChannelPoolSpec extends SpecificationWithJUnit with Mockito {
   val channelGroup = mock[ChannelGroup]
   val bootstrap = mock[ClientBootstrap]
   val address = new InetSocketAddress("127.0.0.1", 31313)

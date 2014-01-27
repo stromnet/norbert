@@ -3,7 +3,7 @@ apply plugin: 'scala'
 
 dependencies {
   compile project(':cluster')
-  compile externalDependency.scalaLibrary 
+  compile externalDependency.scalaLibrary
   compile externalDependency.netty
   compile externalDependency.slf4jApi
   compile externalDependency.slf4jLog4j
@@ -12,8 +12,6 @@ dependencies {
   testCompile externalDependency.mockitoAll
   testCompile externalDependency.cglib
   testCompile externalDependency.objenesis
-
-  scalaTools externalDependency.scalaCompiler
-  scalaTools externalDependency.scalaLibrary
+  testCompile externalDependency.junit
 }
 

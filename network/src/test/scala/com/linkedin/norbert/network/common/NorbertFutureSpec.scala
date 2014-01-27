@@ -17,7 +17,7 @@ package com.linkedin.norbert
 package network
 package common
 
-import org.specs.Specification
+import org.specs.SpecificationWithJUnit
 import org.specs.mock.Mockito
 import java.util.concurrent.{TimeoutException, ExecutionException, TimeUnit, Executor, LinkedBlockingQueue, Executors}
 import scala.Right
@@ -28,7 +28,7 @@ class CurrentThreadExecutor extends Executor {
     }
 }
 
-class NorbertFutureSpec extends Specification with Mockito with SampleMessage {
+class NorbertFutureSpec extends SpecificationWithJUnit with Mockito with SampleMessage {
   case class ResponseExceptionWrapper(exception:ExecutionException, ping: Ping, isException:Boolean)
   class Task(queue: LinkedBlockingQueue[ResponseExceptionWrapper]) extends PromiseListener[Ping] {
     override def onCompleted(response: Ping):Unit = {
