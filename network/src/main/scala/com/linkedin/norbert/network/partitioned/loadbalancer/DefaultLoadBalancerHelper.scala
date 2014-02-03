@@ -92,6 +92,7 @@ trait DefaultLoadBalancerHelper extends LoadBalancerHelpers with Logging {
         do {
           val endpoint = endpoints(i % es)
           if(endpoint.canServeRequests && endpoint.node.isCapableOf(capability, persistentCapability)) {
+            compensateCounter(idx, loopCount, counter);
             return Some(endpoint.node)
           }
 
@@ -100,10 +101,16 @@ trait DefaultLoadBalancerHelper extends LoadBalancerHelpers with Logging {
           loopCount = loopCount + 1
         } while (loopCount <= es)
 
+        compensateCounter(idx, loopCount, counter);
         return Some(endpoints(idx % es).node)
     }
   }
 
-
-
+  private def compensateCounter(idx: Int, count:Int, counter:AtomicInteger) {
+    if (idx + 1 + count <= 0) {
+      // Integer overflow
+      counter.set(idx + 1 - java.lang.Integer.MAX_VALUE + count)
+    }
+    counter.set(idx + 1 + count)
+  }
 }
