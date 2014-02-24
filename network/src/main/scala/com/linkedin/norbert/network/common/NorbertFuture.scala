@@ -414,6 +414,7 @@ class SelectiveRetryIterator[PartitionedId, RequestMsg, ResponseMsg](
       queue.poll(timeoutCutoff - System.currentTimeMillis(), TimeUnit.MILLISECONDS) match {
         case null => {
           var ids:scala.collection.immutable.Set[PartitionedId] = null
+          var failedNodesPrevPass: Set[Node] = failedNodes
           //if we have a retry strategy in place set new values
           retryStrategy match {
             case Some(e:RetryStrategy) => {
@@ -474,6 +475,8 @@ class SelectiveRetryIterator[PartitionedId, RequestMsg, ResponseMsg](
                sendRequestFunctor(request1)
               }
             }
+          } else {
+            failedNodes = failedNodesPrevPass
           }
         }
 

@@ -96,20 +96,75 @@ class NorbertResponseIteratorSpec extends SpecificationWithJUnit with Mockito wi
     }
 
     //duplicates not ok
-    "if not timeout occurs behavior is unchanged in case of no timeout" in {
+    "if not timeout occurs behavior is unchanged in case initial timeout occurs but not the latter timeout" in {
+      def calculateNodeFunctor(setPIds: Set[Int],setNodes: Set[Node],requestMsg: Int) = Map.empty[Node, Set[Int]]
+      def requestBuilderFunctor(node: Node, setPIds: Set[Int]):Int = 1
+      val queue = new ResponseQueue[Tuple3[Node, Set[Int], Int]]
+      val node1 = Node(1, "node1", true)
+      def callback(pRequest: PartitionedRequest[Int,Int,Int]) = queue += Right(Tuple3(null.asInstanceOf[Node], Set.empty[Int] + 1, 2000))
+      val insertQueueLate1 = new Thread(new Runnable {
+        def run() {Thread.sleep(100); queue += Right(Tuple3(node1, Set.empty[Int] + 1, 1000)) }
+      })
+      insertQueueLate1.start()
+
+      val iterator =  new SelectiveRetryIterator[Int, Int, Int](1, 50L,
+                                          callback, Map.empty[Int, Node] + (1 -> node1),
+                                          queue,
+					                                calculateNodeFunctor,
+					                                requestBuilderFunctor,
+                                          new DummyInputSerializer[Int, Int],
+                                          new DummyOutputSerializer[Int, Int],
+                                          Some(new RetryStrategy(200L, 0, None, 10L)))
+      iterator.hasNext mustBe true
+      iterator.next mustEqual 1000
+      iterator.failedNodes mustEqual Set.empty[Node]
+
+      iterator.hasNext mustBe false
+    }
+
+    //duplicates ok
+    "if not timeout occurs behavior is unchanged in case initial timeout occurs but not the latter timeout" in {
+      def calculateNodeFunctor(setPIds: Set[Int],setNodes: Set[Node],requestMsg: Int) = Map.empty[Node, Set[Int]]
+      def requestBuilderFunctor(node: Node, setPIds: Set[Int]):Int = 1
+      val queue = new ResponseQueue[Tuple3[Node, Set[Int], Int]]
+      val node1 = Node(1, "node1", true)
+      def callback(pRequest: PartitionedRequest[Int,Int,Int]) = queue += Right(Tuple3(null.asInstanceOf[Node], Set.empty[Int] + 1, 2000))
+      val insertQueueLate1 = new Thread(new Runnable {
+        def run() {Thread.sleep(100); queue += Right(Tuple3(node1, Set.empty[Int] + 1, 1000)) }
+      })
+      insertQueueLate1.start()
+
+      val iterator =  new SelectiveRetryIterator[Int, Int, Int](1, 50L,
+                                          callback, Map.empty[Int, Node] + (1 -> node1),
+                                          queue,
+                                                                        calculateNodeFunctor,
+                                                                        requestBuilderFunctor,
+                                          new DummyInputSerializer[Int, Int],
+                                          new DummyOutputSerializer[Int, Int],
+                                          Some(new RetryStrategy(200L, 0, None, 10L)))
+      iterator.hasNext mustBe true
+      iterator.next mustEqual 1000
+      iterator.failedNodes mustEqual Set.empty[Node]
+
+      iterator.hasNext mustBe false
+    }
+
+    //duplicates not ok and initial timeout occurs behavior should be unchanged if response comes in later
+    //duplicates not ok
+    "if not timeout occurs behavior is unchanged in case timeout occurs" in {
       def calculateNodeFunctor(setPIds: Set[Int],setNodes: Set[Node],requestMsg: Int) = Map.empty[Node, Set[Int]]
       def requestBuilderFunctor(node: Node, setPIds: Set[Int]):Int = 1
       val queue = new ResponseQueue[Tuple3[Node, Set[Int], Int]]
       queue += Right(Tuple3(Node(10, "endpoint", true), Set.empty[Int] + 100, 1000))
       def callback(pRequest: PartitionedRequest[Int,Int,Int]) = queue += Right(Tuple3(null.asInstanceOf[Node], Set.empty[Int] + 1, 2000))
       val iterator =  new SelectiveRetryIterator[Int, Int, Int](1, 50L,
-                                          callback, Map.empty[Int, Node],
-                                          queue,
-					                                calculateNodeFunctor,
-					                                requestBuilderFunctor,
-                                          new DummyInputSerializer[Int, Int],
-                                          new DummyOutputSerializer[Int, Int],
-                                          None)
+        callback, Map.empty[Int, Node],
+        queue,
+        calculateNodeFunctor,
+        requestBuilderFunctor,
+        new DummyInputSerializer[Int, Int],
+        new DummyOutputSerializer[Int, Int],
+        None)
       //can we test this independently of partitioned network client
       //insert stuff into the queue TODO
       iterator.hasNext mustBe true
