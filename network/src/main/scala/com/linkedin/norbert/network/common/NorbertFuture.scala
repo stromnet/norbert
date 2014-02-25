@@ -65,11 +65,17 @@ abstract class PromiseListener[ResponseMsg] {
 }
 
 class FutureAdapterListener[ResponseMsg] extends FutureAdapter[ResponseMsg] {
+  object InvokerThread {
+    val none = 0;
+    val requestingThread = 1;
+    val norbertThread = 2;
+  }
   @volatile var mListener: PromiseListener[ResponseMsg] = null
+  val callbackInvokingThread:AtomicInteger = new AtomicInteger(InvokerThread.none)
   def addListener(listener: PromiseListener[ResponseMsg]) {
-    synchronized {
-      mListener = listener
-      if(isDone)  {
+    mListener = listener
+    if(isDone) {
+      if(callbackInvokingThread.compareAndSet(InvokerThread.none, InvokerThread.requestingThread)) {
         response match {
           case Left(t) => listener.onThrowable(t)
           case Right(response) => listener.onCompleted(response)
@@ -81,8 +87,8 @@ class FutureAdapterListener[ResponseMsg] extends FutureAdapter[ResponseMsg] {
 
   override def apply(callback: Either[Throwable, ResponseMsg]): Unit = {
     super.apply(callback)
-    synchronized {
-      if(mListener != null) {
+    if(mListener != null) {
+      if(callbackInvokingThread.compareAndSet(InvokerThread.none, InvokerThread.norbertThread)) {
         response match {
           case Left(t) => mListener.onThrowable(t)
           case Right(response) => mListener.onCompleted(response)
