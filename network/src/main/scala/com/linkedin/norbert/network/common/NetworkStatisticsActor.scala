@@ -204,7 +204,6 @@ class NetworkClientStatisticsMBeanImpl(clientName: Option[String], serviceName: 
   private def getPendingStats(p: Double) = stats.getStatistics(p).map(_.pending).getOrElse(Map.empty)
   private def getFinishedStats(p: Double) = stats.getStatistics(p).map(_.finished).getOrElse(Map.empty)
   private def toMillis(statsMetric: Double):Double = statsMetric/1000
-
   def getNumPendingRequests = toJMap(getPendingStats(0.5).map(kv => (kv._1.id, kv._2.size)))
 
   def getMedianTimes =
@@ -272,7 +271,7 @@ class NetworkClientStatisticsMBeanImpl(clientName: Option[String], serviceName: 
 
   def getQueueSize = stats.getStatistics(0.5).map(_.requestQueueSize().values.sum) getOrElse(0)
 
-  def getNodesMarkedDown = strategy.totalNodesMarkedDown.get
+  def getNodesMarkedDown = strategy.canServeRequests.get.getOrElse(Map.empty).count({ case (node, up) => up == false })
 
   def getNumReroutedRequests = strategy.totalNumReroutes.get
 
