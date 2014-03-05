@@ -21,7 +21,6 @@ import org.specs.SpecificationWithJUnit
 import org.specs.mock.Mockito
 import java.util.concurrent.{TimeoutException, ExecutionException, TimeUnit, Executor, LinkedBlockingQueue, Executors}
 import scala.Right
-import java.util.Random
 
 class CurrentThreadExecutor extends Executor {
     def execute(r:Runnable) = {
@@ -87,43 +86,6 @@ class NorbertFutureSpec extends SpecificationWithJUnit with Mockito with SampleM
       queue.size must be(1)
       val response: ResponseExceptionWrapper = queue.poll
       response.isException mustEqual true
-    }
-
-    "concurrent norbert thread and calling thread should be able to handle the response" in {
-      //multiple runs with different thread execution orders hopefully
-      for (i <- 0 to 15) {
-        val future = new FutureAdapterListener[Ping]
-        val queue = new LinkedBlockingQueue[ResponseExceptionWrapper]()
-        val msg = new Ping
-        queue.size must be(0)
-
-        val randomGen = new Random(System.currentTimeMillis())
-        val thread1 = new Thread(new Runnable{
-          def run {
-            val timeToSleep = 20 + randomGen.nextInt() % 20
-            Thread.sleep(timeToSleep)
-            val task = new Task(queue)
-            future.addListener(task)
-          }
-        })
-        thread1.start()
-        val thread2 = new Thread(new Runnable {
-          def run {
-            val timeToSleep = 20 + randomGen.nextInt() % 20
-            Thread.sleep(timeToSleep)
-            future.apply(Right(msg))
-          }
-        })
-        thread2.start()
-
-        //just to make sure the number of active threads is not very high
-        thread1.join()
-        thread2.join()
-
-        future.isDone must beTrue
-        queue.size() mustEqual 1
-        queue.poll mustEqual ResponseExceptionWrapper(null, msg, false)
-      }
     }
   }
 }
