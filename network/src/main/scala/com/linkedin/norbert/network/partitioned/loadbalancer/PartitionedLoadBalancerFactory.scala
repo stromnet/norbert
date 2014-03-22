@@ -73,6 +73,24 @@ trait PartitionedLoadBalancer[PartitionedId] {
       map.updated(node, map(node) + id)
     }
   }
+
+  /**
+   * Calculates a mapping of nodes to partitions. The nodes should be selected from the given number of replicas.
+   * Initial implementation is throws UnsupportedOperationException. Implementation should override this default
+   * implementation.
+   *
+   * @param ids set of partition ids.
+   * @param numberOfReplicas number of replica
+   * @param capability
+   * @param persistentCapability
+   * @return a map from node to partition
+   */
+  def nodesForPartitionsIdsInNReplicas(ids: Set[PartitionedId],
+                                                numberOfReplicas: Int,
+                                                capability: Option[Long] = None,
+                                                persistentCapability: Option[Long] = None): Map[Node, Set[PartitionedId]] = {
+    throw new UnsupportedOperationException
+  }
 }
 
 /**
