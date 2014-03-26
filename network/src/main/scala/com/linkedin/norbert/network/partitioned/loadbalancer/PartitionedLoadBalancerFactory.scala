@@ -89,7 +89,8 @@ trait PartitionedLoadBalancer[PartitionedId] {
                                                 numberOfReplicas: Int,
                                                 capability: Option[Long] = None,
                                                 persistentCapability: Option[Long] = None): Map[Node, Set[PartitionedId]] = {
-    throw new UnsupportedOperationException
+    // Default implementation is just select nodes from all replicas.
+    nodesForPartitionedIds(ids, capability, persistentCapability)
   }
 }
 

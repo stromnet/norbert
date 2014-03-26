@@ -250,7 +250,7 @@ class ClusteredNetworkClientSpec extends BaseNetworkClientSpecification {
         //      doNothing.when(clusterIoClient).sendRequest(node, message, null)
 
         networkClient.start
-        networkClient.sendRequest(Set(1, 2, 3), request, Some(0xffL), Some(2L)) must notBeNull
+        networkClient.sendRequest(Set(1, 2, 3), 1, request, Some(0xffL), Some(2L)) must notBeNull
 
         got {
           no(networkClient.lb).nextNode(1, None, None)
@@ -298,7 +298,7 @@ class ClusteredNetworkClientSpec extends BaseNetworkClientSpecification {
         //      doNothing.when(clusterIoClient).sendRequest(node, message, null)
 
         networkClient.start
-        networkClient.sendRequest(Set(1, 2, 3), request) must throwA[InvalidClusterException]
+        networkClient.sendRequest(Set(1, 2, 3), 1, request) must throwA[InvalidClusterException]
 
         //      clusterIoClient.sendRequest(node, message, null) wasnt called
       }
@@ -325,7 +325,7 @@ class ClusteredNetworkClientSpec extends BaseNetworkClientSpecification {
 //      doNothing.when(clusterIoClient).sendRequest(node, message, null)
 
         networkClient.start
-        networkClient.sendRequest(Set(1, 2, 3), request) must throwA[NoNodesAvailableException]
+        networkClient.sendRequest(Set(1, 2, 3), 1, request) must throwA[NoNodesAvailableException]
 
         there was one(networkClient.lb).nextNode(1, None, None)
 //      clusterIoClient.sendRequest(node, message, null) wasnt called
@@ -357,12 +357,12 @@ class ClusteredNetworkClientSpec extends BaseNetworkClientSpecification {
       List(1, 2, 3).foreach(networkClient.lb.nextNode(_, None, None) returns Some(Node(1, "localhost:31313", true)))
 
       networkClient.start
-      networkClient.sendRequest(Set(1, 2, 3), messageCustomizer _)
+      networkClient.sendRequest(Set(1, 2, 3), 1, messageCustomizer _)
 
       List(1, 2, 3).foreach(there was one(networkClient.lb).nextNode(_, None, None))
 
       List(1, 2, 3).foreach(networkClient.lb.nextNode(_, Some(0x3L), Some(0L)) returns Some(Node(1, "localhost:31313", true)))
-      networkClient.sendRequest(Set(1, 2, 3), messageCustomizer _, Some(0x3L), Some(0L))
+      networkClient.sendRequest(Set(1, 2, 3), 1, messageCustomizer _, Some(0x3L), Some(0L))
       List(1, 2, 3).foreach(there was one(networkClient.lb).nextNode(_,Some(0x3L), Some(0L)))
     }
 
@@ -401,7 +401,7 @@ class ClusteredNetworkClientSpec extends BaseNetworkClientSpecification {
       List(3, 4).foreach(networkClient.lb.nextNode(_, None, None) returns Some(nodes(1)))
 
       networkClient.start
-      networkClient.sendRequest(Set(1, 2, 3, 4), mc _)
+      networkClient.sendRequest(Set(1, 2, 3, 4), 1, mc _)
 
       callCount must be_==(2)
       nodeMap.size must be_==(2)
@@ -447,7 +447,7 @@ class ClusteredNetworkClientSpec extends BaseNetworkClientSpecification {
       List(1, 2).foreach(networkClient.lb.nextNode(_, None, None) returns Some(nodes(0)))
 
       networkClient.start
-      val ri = networkClient.sendRequest(Set(1, 2), mc _)
+      val ri = networkClient.sendRequest(Set(1, 2), 1, mc _)
       ri.hasNext must beTrue
       ri.next must throwA[ExecutionException]
     }
@@ -460,7 +460,7 @@ class ClusteredNetworkClientSpec extends BaseNetworkClientSpecification {
 //      doNothing.when(clusterIoClient).sendRequest(node, message, null)
 
         networkClient.start
-        networkClient.sendRequest(Set(1, 2, 3), messageCustomizer _)  must throwA[InvalidClusterException]
+        networkClient.sendRequest(Set(1, 2, 3), 1, messageCustomizer _)  must throwA[InvalidClusterException]
         networkClient.sendMessage(Set(1, 2, 3), messageCustomizer _)  must throwA[InvalidClusterException]
 
 //      clusterIoClient.sendRequest(node, message, null) wasnt called
@@ -475,7 +475,7 @@ class ClusteredNetworkClientSpec extends BaseNetworkClientSpecification {
 //      doNothing.when(clusterIoClient).sendRequest(node, message, null)
 
         networkClient.start
-        networkClient.sendRequest(Set(1, 2, 3), messageCustomizer _) must throwA[NoNodesAvailableException]
+        networkClient.sendRequest(Set(1, 2, 3), 1, messageCustomizer _) must throwA[NoNodesAvailableException]
         networkClient.sendMessage(Set(1, 2, 3), messageCustomizer _) must throwA[NoNodesAvailableException]
 
         there were two(networkClient.lb).nextNode(1, None, None)
@@ -495,7 +495,7 @@ class ClusteredNetworkClientSpec extends BaseNetworkClientSpecification {
         List(1, 2, 3).foreach(networkClient.lb.nextNode(_, None, None) returns Some(Node(1, "localhost:31313", true)))
 
         networkClient.start
-        networkClient.sendRequest(Set(1, 2, 3), messageCustomizer _, MAX_RETRY)
+        networkClient.sendRequest(Set(1, 2, 3), 1, messageCustomizer _, MAX_RETRY)
 
         List(1, 2, 3).foreach(there was one(networkClient.lb).nextNode(_, None, None))
       }
@@ -518,7 +518,7 @@ class ClusteredNetworkClientSpec extends BaseNetworkClientSpecification {
         List(3, 4).foreach(networkClient.lb.nextNode(_, None, None) returns Some(nodes(1)))
 
         networkClient.start
-        networkClient.sendRequest(Set(1, 2, 3, 4), mc _, MAX_RETRY)
+        networkClient.sendRequest(Set(1, 2, 3, 4), 1, mc _, MAX_RETRY)
 
         callCount must be_==(2)
         nodeMap.size must be_==(2)
@@ -538,7 +538,7 @@ class ClusteredNetworkClientSpec extends BaseNetworkClientSpecification {
         List(1, 2).foreach(networkClient.lb.nextNode(_, None, None) returns Some(nodes(0)))
 
         networkClient.start
-        val ri = networkClient.sendRequest(Set(1, 2), mc _, MAX_RETRY)
+        val ri = networkClient.sendRequest(Set(1, 2), 1, mc _, MAX_RETRY)
         ri.hasNext must beTrue
         ri.next must throwA[ExecutionException]
       }
@@ -550,7 +550,7 @@ class ClusteredNetworkClientSpec extends BaseNetworkClientSpecification {
         networkClient.loadBalancerFactory.newLoadBalancer(endpoints) throws new InvalidClusterException("")
 
         networkClient.start
-        networkClient.sendRequest(Set(1, 2, 3), messageCustomizer _, MAX_RETRY)  must throwA[InvalidClusterException]
+        networkClient.sendRequest(Set(1, 2, 3), 1, messageCustomizer _, MAX_RETRY)  must throwA[InvalidClusterException]
       }
 
       "throw NoSuchNodeException if load balancer returns None when sendRequest is called" in {
@@ -561,7 +561,7 @@ class ClusteredNetworkClientSpec extends BaseNetworkClientSpecification {
         networkClient.lb.nextNode(1, None, None) returns None
 
         networkClient.start
-        networkClient.sendRequest(Set(1, 2, 3), messageCustomizer _, MAX_RETRY) must throwA[NoNodesAvailableException]
+        networkClient.sendRequest(Set(1, 2, 3), 1, messageCustomizer _, MAX_RETRY) must throwA[NoNodesAvailableException]
 
         there was one(networkClient.lb).nextNode(1, None, None)
       }
@@ -709,7 +709,7 @@ class ClusteredNetworkClientSpec extends BaseNetworkClientSpecification {
         nc2.clusterClient.isConnected returns true
         nc2.loadBalancerFactory.newLoadBalancer(endpoints) returns nc2.lb
         nc2.start
-        val resIter = nc2.sendRequest(Set(1,2,3), messageCustomizer _, MAX_RETRY)
+        val resIter = nc2.sendRequest(Set(1,2,3), 1, messageCustomizer _, MAX_RETRY)
         nc2.clusterIoClient.invocationCount mustEqual (MAX_RETRY * 4)
         while (resIter.hasNext) {
           resIter.next must throwAnException[Exception]
@@ -755,7 +755,7 @@ class ClusteredNetworkClientSpec extends BaseNetworkClientSpecification {
       nc2.clusterClient.isConnected returns true
       nc2.loadBalancerFactory.newLoadBalancer(endpoints) returns nc2.lb
       nc2.start
-      val resIter = nc2.sendRequest[Ping, Ping](Set(1,2), messageCustomizer _, MAX_RETRY)
+      val resIter = nc2.sendRequest[Ping, Ping](Set(1,2), 1, messageCustomizer _, MAX_RETRY)
       while (resIter.hasNext) {
         resIter.next mustNot throwAnException
       }
@@ -802,7 +802,7 @@ class ClusteredNetworkClientSpec extends BaseNetworkClientSpecification {
       nc2.clusterClient.isConnected returns true
       nc2.loadBalancerFactory.newLoadBalancer(endpoints) returns nc2.lb
       nc2.start
-      val resIter = nc2.sendRequest[Ping, Ping](Set(0,1), messageCustomizer _, MAX_RETRY)
+      val resIter = nc2.sendRequest[Ping, Ping](Set(0,1), 1, messageCustomizer _, MAX_RETRY)
       var num = 0
       while (resIter.hasNext) {
         num += 1
@@ -928,7 +928,7 @@ class ClusteredNetworkClientSpec extends BaseNetworkClientSpecification {
         List(1, 2).foreach(networkClient.lb.nextNode(_, None, None) returns Some(nodes(0)))
 
         networkClient.start
-        networkClient.sendRequest(Set(1, 2), (node: Node, ids: Set[Int]) => request, ag _) must be_==(123454321)
+        networkClient.sendRequest(Set(1, 2), 1, (node: Node, ids: Set[Int]) => request, ag _) must be_==(123454321)
 
         callCount must be_==(1)
       }
@@ -945,7 +945,7 @@ class ClusteredNetworkClientSpec extends BaseNetworkClientSpecification {
         List(1, 2).foreach(networkClient.lb.nextNode(_, None, None) returns Some(nodes(0)))
 
         networkClient.start
-        networkClient.sendRequest(Set(1, 2), (node: Node, ids: Set[Int]) => request, ag _) must throwA[Exception]
+        networkClient.sendRequest(Set(1, 2), 1, (node: Node, ids: Set[Int]) => request, ag _) must throwA[Exception]
       }
 
       "Automatically fix partitioned requests " in {
