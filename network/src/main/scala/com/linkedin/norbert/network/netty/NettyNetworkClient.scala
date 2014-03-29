@@ -24,7 +24,7 @@ import org.jboss.netty.handler.codec.frame.{LengthFieldBasedFrameDecoder, Length
 import org.jboss.netty.handler.codec.protobuf.{ProtobufDecoder, ProtobufEncoder}
 import java.util.concurrent.Executors
 import partitioned.loadbalancer.{DefaultClusteredLoadBalancerFactory, PartitionedLoadBalancerFactoryComponent, PartitionedLoadBalancerFactory}
-import partitioned.{ClusteredNetworkClient, PartitionedNetworkClient}
+import partitioned.PartitionedNetworkClient
 import client.loadbalancer.{LoadBalancerFactoryComponent, LoadBalancerFactory}
 import cluster.{ClusterClient, ClusterClientComponent}
 import protos.NorbertProtos
@@ -131,14 +131,5 @@ class NettyNetworkClient(clientConfig: NetworkClientConfig, val loadBalancerFact
 
 class NettyPartitionedNetworkClient[PartitionedId](clientConfig: NetworkClientConfig, val loadBalancerFactory: PartitionedLoadBalancerFactory[PartitionedId]) extends BaseNettyNetworkClient(clientConfig)
     with PartitionedNetworkClient[PartitionedId] with PartitionedLoadBalancerFactoryComponent[PartitionedId] {
-  setConfig(clientConfig)
-}
-
-class NettyClusteredNetworkClient[PartitionedId](clientConfig: NetworkClientConfig,
-                                                 val loadBalancerFactory: PartitionedLoadBalancerFactory[PartitionedId])
-  extends BaseNettyNetworkClient(clientConfig)
-  with ClusteredNetworkClient[PartitionedId]
-  with PartitionedLoadBalancerFactoryComponent[PartitionedId]
-{
   setConfig(clientConfig)
 }
