@@ -76,8 +76,8 @@ trait PartitionedLoadBalancer[PartitionedId] {
 
   /**
    * Calculates a mapping of nodes to partitions. The nodes should be selected from the given number of replicas.
-   * Initial implementation is throws UnsupportedOperationException. Implementation should override this default
-   * implementation.
+   * Initial implementation is delegating request to maximum degree of fan-out. Implementation should override this
+   * default implementation.
    *
    * @param ids set of partition ids.
    * @param numberOfReplicas number of replica

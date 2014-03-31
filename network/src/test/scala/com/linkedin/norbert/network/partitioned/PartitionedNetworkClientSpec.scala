@@ -833,7 +833,7 @@ class PartitionedNetworkClientSpec extends BaseNetworkClientSpecification {
       num mustEq 2
 
       val resIter2 = nc2.sendRequest[Ping, Ping](Set(0,1), messageCustomizer _, MAX_RETRY)
-     num = 0
+      num = 0
       while (resIter2.hasNext) {
         num += 1
         resIter2.next mustNot throwAnException

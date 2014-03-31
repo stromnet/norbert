@@ -78,6 +78,17 @@ abstract class DefaultClusteredLoadBalancerFactory[PartitionedId](numPartitions:
       }
     }
 
+    /**
+     * Calculates a mapping of nodes to partitions. The nodes should be selected from the given number of replicas.
+     * If the numberOfReplicas is zero or grater than maximum number of clusters, this function will choose node from
+     * all clusters.
+     *
+     * @param ids set of partition ids.
+     * @param numberOfReplicas number of replica
+     * @param capability
+     * @param persistentCapability
+     * @return a map from node to partition
+     */
     override def nodesForPartitionsIdsInNReplicas(ids: Set[PartitionedId],
                                                   numberOfReplicas: Int,
                                                   capability: Option[Long] = None,
