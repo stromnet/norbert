@@ -123,7 +123,7 @@ object NetworkDefaults {
   /**
    * The amount of time to mark as unavailable and pause for when shutting down the server
    */
-  val SHUTDOWN_PAUSE = 0
+  val SHUTDOWN_PAUSE_MULTIPLIER = 0
 
   /**
    * The default timeout for the time between starting iteration and the time we get the last element from iterator.

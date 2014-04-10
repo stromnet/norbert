@@ -48,7 +48,7 @@ class NetworkServerConfig {
   var requestStatisticsWindow = NetworkDefaults.REQUEST_STATISTICS_WINDOW
   var avoidByteStringCopy = NetworkDefaults.AVOID_BYTESTRING_COPY
 
-  var shutdownPause = NetworkDefaults.SHUTDOWN_PAUSE
+  var shutdownPauseMultiplier = NetworkDefaults.SHUTDOWN_PAUSE_MULTIPLIER
 }
 
 class NettyNetworkServer(serverConfig: NetworkServerConfig) extends NetworkServer with ClusterClientComponent with NettyClusterIoServerComponent
@@ -118,10 +118,10 @@ class NettyNetworkServer(serverConfig: NetworkServerConfig) extends NetworkServe
   val clusterIoServer = new NettyClusterIoServer(bootstrap, channelGroup)
 
   override def shutdown = {
-    if (serverConfig.shutdownPause > 0)
+    if (serverConfig.shutdownPauseMultiplier > 0)
     {
       markUnavailable
-      Thread.sleep(serverConfig.shutdownPause)
+      Thread.sleep(serverConfig.shutdownPauseMultiplier * serverConfig.zooKeeperSessionTimeoutMillis)
     }
 
     if (serverConfig.clusterClient == null) clusterClient.shutdown else super.shutdown
