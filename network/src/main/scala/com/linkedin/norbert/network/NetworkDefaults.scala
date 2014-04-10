@@ -121,6 +121,11 @@ object NetworkDefaults {
   val AVOID_BYTESTRING_COPY = true
 
   /**
+   * The amount of time to mark as unavailable and pause for when shutting down the server
+   */
+  val SHUTDOWN_PAUSE_MULTIPLIER = 0
+
+  /**
    * The default timeout for the time between starting iteration and the time we get the last element from iterator.
    */
   val DEFAULT_ITERATOR_TIMEOUT:Long = 5000

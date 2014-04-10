@@ -47,6 +47,8 @@ class NetworkServerConfig {
 
   var requestStatisticsWindow = NetworkDefaults.REQUEST_STATISTICS_WINDOW
   var avoidByteStringCopy = NetworkDefaults.AVOID_BYTESTRING_COPY
+
+  var shutdownPauseMultiplier = NetworkDefaults.SHUTDOWN_PAUSE_MULTIPLIER
 }
 
 class NettyNetworkServer(serverConfig: NetworkServerConfig) extends NetworkServer with ClusterClientComponent with NettyClusterIoServerComponent
@@ -116,6 +118,12 @@ class NettyNetworkServer(serverConfig: NetworkServerConfig) extends NetworkServe
   val clusterIoServer = new NettyClusterIoServer(bootstrap, channelGroup)
 
   override def shutdown = {
+    if (serverConfig.shutdownPauseMultiplier > 0)
+    {
+      markUnavailable
+      Thread.sleep(serverConfig.shutdownPauseMultiplier * serverConfig.zooKeeperSessionTimeoutMillis)
+    }
+
     if (serverConfig.clusterClient == null) clusterClient.shutdown else super.shutdown
     //change the sequence so that we do not accept any more connections from clients
     //are existing connections could feed us new norbert messages
