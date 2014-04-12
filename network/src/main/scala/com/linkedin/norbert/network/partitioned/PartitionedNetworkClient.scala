@@ -324,9 +324,6 @@ trait PartitionedNetworkClient[PartitionedId] extends BaseNetworkClient {
   {
     if (ids == null || requestBuilder == null) throw new NullPointerException
     val nodes = calculateNodesFromIds(ids, numberOfReplicas, capability, persistentCapability)
-    //log.info("Total number of ids: %d, selected nodes: %d [%s]", ids.size, nodes.size, nodes.foldLeft(" ") {
-    //  case (info, (node, partitions)) => info + ", " + nodes.size)))
-    //})
     log.info("Total number of ids: %d, selected nodes: %d".format(ids.size, nodes.size))
     if (nodes.size <= 1 || routingConfigs.selectiveRetry || retryStrategy == null) {
       val queue = new ResponseQueue[ResponseMsg]
