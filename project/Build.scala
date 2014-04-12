@@ -15,7 +15,7 @@ object BuildSettings {
 
   val buildSettings = Defaults.defaultSettings ++ Seq (
     organization := "com.linkedin",
-    version      := "0.6.33",
+    version      := "0.6.65",
     scalaVersion := "2.8.1",
     credentialsSetting,
     publishArtifact in (Compile, packageDoc) := false,
