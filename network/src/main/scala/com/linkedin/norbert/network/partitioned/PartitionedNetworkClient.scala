@@ -219,9 +219,8 @@ trait PartitionedNetworkClient[PartitionedId] extends BaseNetworkClient {
     sendRequest(ids, request, capability, None) 
  
   def sendRequest[RequestMsg, ResponseMsg](ids: Set[PartitionedId], request: RequestMsg, capability: Option[Long], persistentCapability: Option[Long])
-  (implicit is: InputSerializer[RequestMsg, ResponseMsg], os: OutputSerializer[RequestMsg, ResponseMsg]): ResponseIterator[ResponseMsg] = doIfConnected {
+  (implicit is: InputSerializer[RequestMsg, ResponseMsg], os: OutputSerializer[RequestMsg, ResponseMsg]): ResponseIterator[ResponseMsg] =
     sendRequest(ids, (node: Node, ids: Set[PartitionedId]) => request, capability, persistentCapability)(is, os)
-  }
 
   /**
    * Sends a <code>Message</code> to the specified <code>PartitionedId</code>s. The <code>PartitionedNetworkClient</code>
@@ -325,6 +324,10 @@ trait PartitionedNetworkClient[PartitionedId] extends BaseNetworkClient {
   {
     if (ids == null || requestBuilder == null) throw new NullPointerException
     val nodes = calculateNodesFromIds(ids, numberOfReplicas, capability, persistentCapability)
+    //log.info("Total number of ids: %d, selected nodes: %d [%s]", ids.size, nodes.size, nodes.foldLeft(" ") {
+    //  case (info, (node, partitions)) => info + ", " + nodes.size)))
+    //})
+    log.info("Total number of ids: %d, selected nodes: %d".format(ids.size, nodes.size))
     if (nodes.size <= 1 || routingConfigs.selectiveRetry || retryStrategy == null) {
       val queue = new ResponseQueue[ResponseMsg]
       val resIter = new NorbertDynamicResponseIterator[ResponseMsg](nodes.size, queue)
@@ -462,10 +465,8 @@ trait PartitionedNetworkClient[PartitionedId] extends BaseNetworkClient {
     sendRequestToOneReplica(id, request, capability, None)
 
   def sendRequestToOneReplica[RequestMsg, ResponseMsg](id: PartitionedId, request: RequestMsg, capability: Option[Long], persistentCapability: Option[Long])
-  (implicit is: InputSerializer[RequestMsg, ResponseMsg], os: OutputSerializer[RequestMsg, ResponseMsg]): ResponseIterator[ResponseMsg]  = doIfConnected {
+  (implicit is: InputSerializer[RequestMsg, ResponseMsg], os: OutputSerializer[RequestMsg, ResponseMsg]): ResponseIterator[ResponseMsg]  =
     sendRequestToOneReplica(id, (node: Node, partitions: Set[Int]) => request, capability, persistentCapability)(is, os)
-  }
-
 
 
   /**
