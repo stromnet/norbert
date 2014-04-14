@@ -154,7 +154,11 @@ private case class NetworkStatisticsTracker[GroupIdType, RequestIdType](clock: C
   }
 
   def getResponseTimings = {
-    timeTrackers.toMap.mapValues(_.totalRequestProcessingTimeTracker.getTimings)
+    getFinishedRequestTimeArrays.mapValues(array => array.map(_._2).sorted)
+  }
+
+  def getFinishedRequestTimeArrays = {
+    timeTrackers.toMap.mapValues( _.totalRequestPNerocessingTimeTracker.getArray)
   }
 }
 
