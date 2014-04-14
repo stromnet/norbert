@@ -184,7 +184,7 @@ class PendingRequestTimeTracker[KeyT](clock: Clock) {
   def getStartTime(key: KeyT) = Option(map.get(key))
 
   //pre-condition for this method is the above method returns some 
-  def getQueueTime(key: KeyT) = map.get(key)
+  def getQueueTime(key: KeyT) = mapQueueTime.get(key)
 
   def beginRequest(key: KeyT, queueTime: Long) {
     numRequests.incrementAndGet
