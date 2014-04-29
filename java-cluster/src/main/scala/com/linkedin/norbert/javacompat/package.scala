@@ -52,7 +52,9 @@ package object javacompat {
         partitionIds += iter.next.intValue
       }
 
-      SNode(node.getId, node.getUrl, node.isAvailable, partitionIds)
+      SNode(node.getId, node.getUrl, node.isAvailable, partitionIds,
+			if(node.getCapability == null) None else Some(node.getCapability.longValue),
+			if(node.getPersistentCapability == null) None else Some(node.getPersistentCapability.longValue))
     }
   }
 
