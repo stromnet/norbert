@@ -281,3 +281,10 @@ public class NorbertNetworkClient {
 * maxConnectionsPerNode - the maximum number of open connections to a node. The total number of connections that can be opened by a network client is maxConnectionsPerNode * number of nodes
 * staleRequestTimeoutMins - the number of minutes to keep a request that is waiting for a response
 * staleRequestCleanupFrequenceMins - the frequency to clean up stale requests
+
+### New configuration Parameters for PartitionedNetworkClientFactory
+* enableSelectiveRetry - if this is enabled all the norbert requests which scatter gather will use retry strategy if some of the responses are slow
+* retryStrategy - this strategy provides a hook which is called when all the responses are not returned after a small initial timeout.
+
+### FutureAdapterListener facility 
+* This is a new class in NorbertFuture which returns a handle with the asynchronous request. It is possible to register a callback against this handle.       
