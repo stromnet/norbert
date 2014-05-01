@@ -108,7 +108,7 @@ class ChannelPool(address: InetSocketAddress, maxConnections: Int, openTimeoutMi
    * This is a soft close where we get rid of the JMX values only.
    * The reason for splitting it in two phases is to avoid extra synchronization overhead
   */ 
-  def JMXUnregister {
+  def unregisterJMX {
     softClosed.set(true)
     jmxHandle.foreach {JMX.unregister(_)}
   }

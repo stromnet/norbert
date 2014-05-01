@@ -59,7 +59,7 @@ trait NettyClusterIoClientComponent extends ClusterIoClientComponent {
       import scala.collection.JavaConversions._
       channelPools.keySet.foreach { node =>
         if (!nodes.contains(node)) {
-          channelPools.get(node).JMXUnregister
+          channelPools.get(node).unregisterJMX
           val pool = channelPools.remove(node)
           pool.close
           log.info("Closing pool for unavailable node: %s".format(node))
