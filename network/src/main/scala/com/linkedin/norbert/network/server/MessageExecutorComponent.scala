@@ -92,7 +92,7 @@ class ThreadPoolMessageExecutor(clientName: Option[String],
     }
   }
 
-  def setRequestTimeout( newValue : Long ) = {
+  def setRequestTimeout(newValue : Long) = {
     requestTimeout = newValue
     log.info("Setting timeout to " + newValue)
   }
