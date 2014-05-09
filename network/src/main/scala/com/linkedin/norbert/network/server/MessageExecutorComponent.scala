@@ -52,7 +52,7 @@ class ThreadPoolMessageExecutor(clientName: Option[String],
                                 serviceName: String,
                                 messageHandlerRegistry: MessageHandlerRegistry,
                                 val filters: MutableList[Filter],
-                                requestTimeout: Long,
+                                var requestTimeout: Long,
                                 corePoolSize: Int,
                                 maxPoolSize: Int,
                                 keepAliveTime: Int,
@@ -92,9 +92,14 @@ class ThreadPoolMessageExecutor(clientName: Option[String],
     }
   }
 
+  def setRequestTimeout( newValue : Long ) = {
+    requestTimeout = newValue
+    log.info("Setting timeout to " + newValue)
+  }
+
   def executeMessage[RequestMsg, ResponseMsg](request: RequestMsg, responseHandler:  Option[(Either[Exception, ResponseMsg]) => Unit], context: Option[RequestContext] = None)
                                              (implicit is: InputSerializer[RequestMsg, ResponseMsg]) {
-    val rr = new RequestRunner(request, context, filters, responseHandler, is = is)
+    val rr = new RequestRunner(request, requestTimeout, context, filters, responseHandler, is = is)
     try {
       threadPool.execute(rr)
     } catch {
@@ -116,6 +121,7 @@ class ThreadPoolMessageExecutor(clientName: Option[String],
   private val idGenerator = new AtomicInteger(0)
 
   private class RequestRunner[RequestMsg, ResponseMsg](request: RequestMsg,
+                                                       val reqTimeout : Long,
                                                        context: Option[RequestContext],
                                                        filters: MutableList[Filter],
                                                        callback: Option[(Either[Exception, ResponseMsg]) => Unit],
@@ -124,8 +130,7 @@ class ThreadPoolMessageExecutor(clientName: Option[String],
                                                        implicit val is: InputSerializer[RequestMsg, ResponseMsg]) extends Runnable {
     def run = {
       val now = System.currentTimeMillis
-
-      if(now - queuedAt > requestTimeout) {
+      if(now - queuedAt > reqTimeout) {
         totalNumRejected.incrementAndGet
         log.warn("Request timed out, ignoring! Currently = " + now + ". Queued at = " + queuedAt + ". Timeout = " + requestTimeout)
         callback.foreach(_(Left(new HeavyLoadException)))
