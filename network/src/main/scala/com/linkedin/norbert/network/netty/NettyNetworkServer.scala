@@ -115,9 +115,8 @@ class NettyNetworkServer(serverConfig: NetworkServerConfig) extends NetworkServe
     }
   })
 
-  def setrequestTimeoutMillis ( newValue : Long ) = {
-      log.info("Setting timeout to " + newValue)
-      messageExecutor.setRequestTimeout( newValue )
+  def setRequestTimeoutMillis(newValue : Long) = {
+      messageExecutor.setRequestTimeout(newValue)
   }
 
   val clusterIoServer = new NettyClusterIoServer(bootstrap, channelGroup)
