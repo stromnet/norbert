@@ -331,7 +331,7 @@ trait PartitionedNetworkClient[PartitionedId] extends BaseNetworkClient {
       } mkString("", ",", "")
     ))
 
-    if (nodes.size <= 1 || routingConfigs.selectiveRetry || retryStrategy == null) {
+    if (nodes.size <= 1 || !routingConfigs.selectiveRetry || retryStrategy == null) {
       val queue = new ResponseQueue[ResponseMsg]
       val resIter = new NorbertDynamicResponseIterator[ResponseMsg](nodes.size, queue)
       nodes.foreach { case (node, idsForNode) =>
