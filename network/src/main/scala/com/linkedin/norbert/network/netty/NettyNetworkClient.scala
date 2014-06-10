@@ -26,12 +26,12 @@ import java.util.concurrent.Executors
 import partitioned.loadbalancer.{DefaultClusteredLoadBalancerFactory, PartitionedLoadBalancerFactoryComponent, PartitionedLoadBalancerFactory}
 import partitioned.PartitionedNetworkClient
 import client.loadbalancer.{LoadBalancerFactoryComponent, LoadBalancerFactory}
-import cluster.{ClusterClient, ClusterClientComponent}
+import com.linkedin.norbert.cluster.{Node, ClusterClient, ClusterClientComponent}
 import protos.NorbertProtos
 import org.jboss.netty.channel.{ChannelPipelineFactory, Channels}
 import client.{ThreadPoolResponseHandler, ResponseHandlerComponent, NetworkClient, NetworkClientConfig, NetworkClientComponent}
-import common.{CompositeCanServeRequestStrategy, SimpleBackoffStrategy, BaseNetworkClient}
-import java.util.{Map => JMap}
+import com.linkedin.norbert.network.common.{CachedNetworkStatistics, CompositeCanServeRequestStrategy, SimpleBackoffStrategy, BaseNetworkClient}
+import java.util.{Map => JMap, UUID}
 import jmx.JMX
 import jmx.JMX.MBean
 import norbertutils._
@@ -53,6 +53,8 @@ abstract class BaseNettyNetworkClient(clientConfig: NetworkClientConfig) extends
     maxWaitingQueueSize = clientConfig.responseHandlerMaxWaitingQueueSize,
     avoidByteStringCopy = clientConfig.avoidByteStringCopy)
 
+  private val stats = CachedNetworkStatistics[Node, UUID](SystemClock, clientConfig.requestStatisticsWindow, 200L)
+
   private val handler = new ClientChannelHandler(
     clientName = clusterClient.clientName,
     serviceName = clusterClient.serviceName,
@@ -62,7 +64,8 @@ abstract class BaseNettyNetworkClient(clientConfig: NetworkClientConfig) extends
     outlierMultiplier = clientConfig.outlierMuliplier,
     outlierConstant = clientConfig.outlierConstant,
     responseHandler = responseHandler,
-    avoidByteStringCopy = clientConfig.avoidByteStringCopy)
+    avoidByteStringCopy = clientConfig.avoidByteStringCopy,
+    stats = stats)
 
   // TODO why isn't clientConfig visible here?
   bootstrap.setOption("connectTimeoutMillis", connectTimeoutMillis)
@@ -116,7 +119,8 @@ abstract class BaseNettyNetworkClient(clientConfig: NetworkClientConfig) extends
     writeTimeoutMillis = clientConfig.writeTimeoutMillis,
     bootstrap = bootstrap,
     closeChannelTimeMillis = clientConfig.closeChannelTimeMillis,
-    errorStrategy = Some(channelPoolStrategy))
+    errorStrategy = Some(channelPoolStrategy),
+    stats = stats)
 
   val clusterIoClient = new NettyClusterIoClient(channelPoolFactory, strategy)
 

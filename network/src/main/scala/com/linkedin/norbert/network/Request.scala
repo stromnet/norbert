@@ -18,6 +18,10 @@ package com.linkedin.norbert.network
 import java.util.UUID
 import com.linkedin.norbert.cluster.{ClusterException, Node}
 import scala.collection.mutable.Map
+import com.linkedin.norbert.logging.Logging
+import com.linkedin.norbert.network.common.CachedNetworkStatistics
+import com.linkedin.norbert.norbertutils.SystemClockComponent
+import com.linkedin.norbert.network.netty.ClientChannelHandler
 
 object Request {
   def apply[RequestMsg, ResponseMsg](message: RequestMsg, node: Node,
@@ -44,6 +48,10 @@ class Request[RequestMsg, ResponseMsg](val message: RequestMsg, val node: Node,
 
   def onFailure(exception: Throwable) {
     if(!callback.isEmpty) callback.get(Left(exception))
+  }
+
+  def startNettyTiming(stats : CachedNetworkStatistics[Node, UUID]) = {
+    stats.beginNetty(node, id, 0)
   }
 
   def onSuccess(bytes: Array[Byte]) {
