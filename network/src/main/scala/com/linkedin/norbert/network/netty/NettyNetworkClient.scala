@@ -23,7 +23,7 @@ import org.jboss.netty.handler.logging.LoggingHandler
 import org.jboss.netty.handler.codec.frame.{LengthFieldBasedFrameDecoder, LengthFieldPrepender}
 import org.jboss.netty.handler.codec.protobuf.{ProtobufDecoder, ProtobufEncoder}
 import java.util.concurrent.Executors
-import partitioned.loadbalancer.{DefaultClusteredLoadBalancerFactory, PartitionedLoadBalancerFactoryComponent, PartitionedLoadBalancerFactory}
+import partitioned.loadbalancer.{PartitionedLoadBalancerFactoryComponent, PartitionedLoadBalancerFactory}
 import partitioned.PartitionedNetworkClient
 import client.loadbalancer.{LoadBalancerFactoryComponent, LoadBalancerFactory}
 import com.linkedin.norbert.cluster.{Node, ClusterClient, ClusterClientComponent}
@@ -74,6 +74,8 @@ abstract class BaseNettyNetworkClient(clientConfig: NetworkClientConfig) extends
   bootstrap.setPipelineFactory(new ChannelPipelineFactory {
     private val loggingHandler = new LoggingHandler
     private val protobufDecoder = new ProtobufDecoder(NorbertProtos.NorbertMessage.getDefaultInstance)
+    private val darkCanaryDownstreamHandler = new DarkCanaryChannelHandler.DownStreamHandler()
+    private val darkCanaryUpstreamHandler = new DarkCanaryChannelHandler.UpstreamHandler()
     private val frameEncoder = new LengthFieldPrepender(4)
     private val protobufEncoder = new ProtobufEncoder
 
@@ -88,8 +90,9 @@ abstract class BaseNettyNetworkClient(clientConfig: NetworkClientConfig) extends
       p.addLast("frameEncoder", frameEncoder)
       p.addLast("protobufEncoder", protobufEncoder)
 
+      p.addLast("darkCanaryUpstreamHandler", darkCanaryUpstreamHandler)
       p.addLast("requestHandler", handler)
-
+      p.addLast("darkDownstreamCanaryHandler", darkCanaryDownstreamHandler)
       p
     }
   })
@@ -123,6 +126,7 @@ abstract class BaseNettyNetworkClient(clientConfig: NetworkClientConfig) extends
     stats = stats)
 
   val clusterIoClient = new NettyClusterIoClient(channelPoolFactory, strategy)
+  DarkCanaryChannelHandler.initialize(clientConfig, clusterIoClient)
 
   override def shutdown = {
     if (clientConfig.clusterClient == null) clusterClient.shutdown else super.shutdown
