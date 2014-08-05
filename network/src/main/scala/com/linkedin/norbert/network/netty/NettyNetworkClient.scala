@@ -29,7 +29,7 @@ import client.loadbalancer.{LoadBalancerFactoryComponent, LoadBalancerFactory}
 import com.linkedin.norbert.cluster.{Node, ClusterClient, ClusterClientComponent}
 import protos.NorbertProtos
 import org.jboss.netty.channel.{ChannelPipelineFactory, Channels}
-import client.{ThreadPoolResponseHandler, ResponseHandlerComponent, NetworkClient, NetworkClientConfig, NetworkClientComponent}
+import client.{ThreadPoolResponseHandler, ResponseHandlerComponent, NetworkClient, NetworkClientConfig}
 import com.linkedin.norbert.network.common.{CachedNetworkStatistics, CompositeCanServeRequestStrategy, SimpleBackoffStrategy, BaseNetworkClient}
 import java.util.{Map => JMap, UUID}
 import jmx.JMX
