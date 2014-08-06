@@ -67,6 +67,8 @@ abstract class BaseNettyNetworkClient(clientConfig: NetworkClientConfig) extends
     avoidByteStringCopy = clientConfig.avoidByteStringCopy,
     stats = stats)
 
+  private val darkCanaryHandler = new DarkCanaryChannelHandler()
+
   // TODO why isn't clientConfig visible here?
   bootstrap.setOption("connectTimeoutMillis", connectTimeoutMillis)
   bootstrap.setOption("tcpNoDelay", true)
@@ -74,8 +76,8 @@ abstract class BaseNettyNetworkClient(clientConfig: NetworkClientConfig) extends
   bootstrap.setPipelineFactory(new ChannelPipelineFactory {
     private val loggingHandler = new LoggingHandler
     private val protobufDecoder = new ProtobufDecoder(NorbertProtos.NorbertMessage.getDefaultInstance)
-    private val darkCanaryDownstreamHandler = new DarkCanaryChannelHandler.DownStreamHandler()
-    private val darkCanaryUpstreamHandler = new DarkCanaryChannelHandler.UpstreamHandler()
+    private val darkCanaryDownstreamHandler = new darkCanaryHandler.DownStreamHandler()
+    private val darkCanaryUpstreamHandler = new darkCanaryHandler.UpstreamHandler()
     private val frameEncoder = new LengthFieldPrepender(4)
     private val protobufEncoder = new ProtobufEncoder
 
@@ -126,7 +128,7 @@ abstract class BaseNettyNetworkClient(clientConfig: NetworkClientConfig) extends
     stats = stats)
 
   val clusterIoClient = new NettyClusterIoClient(channelPoolFactory, strategy)
-  DarkCanaryChannelHandler.initialize(clientConfig, clusterIoClient)
+  darkCanaryHandler.initialize(clientConfig, clusterIoClient)
 
   override def shutdown = {
     if (clientConfig.clusterClient == null) clusterClient.shutdown else super.shutdown

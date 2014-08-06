@@ -31,59 +31,52 @@ import scala.Tuple2
  * Handle the forking of Dark Canary requests to the mirror hosts as well as collecting and (possibly) comparing
  * responses.
  */
-object DarkCanaryChannelHandler {
+class DarkCanaryChannelHandler extends Logging {
   private val requestMap = new JConcurrentHashMap[UUID, Tuple2[Request[Any,Any], Request[Any,Any]]]()
   private val mirroredHosts= new JConcurrentHashMap[Int, Node]()
 
-  private var initialized : Boolean = false
   private var clusterIoClient: ClusterIoClient = null
 
   private var clusterClient : ClusterClient = null
 
   def initialize(clientConfig : NetworkClientConfig, clusterIoClient_ : ClusterIoClient) = {
-    this.synchronized {
-      if (!initialized) {
-        clientConfig.darkCanaryServiceName match {
-          case None => {
-            println("Dark canaries not configured")
-          }
-          case Some(serviceName) => {
-            clusterClient = ClusterClient(clientConfig.clientName + "DarkCanary",
-              serviceName,
-              clientConfig.zooKeeperConnectString,
-              clientConfig.zooKeeperSessionTimeoutMillis)
+    clientConfig.darkCanaryServiceName match {
+      case None => {
+        println("Dark canaries not configured")
+      }
+      case Some(serviceName) => {
+        clusterClient = ClusterClient(clientConfig.clientName + "DarkCanary",
+          serviceName,
+          clientConfig.zooKeeperConnectString,
+          clientConfig.zooKeeperSessionTimeoutMillis)
 
-            clusterClient.addListener(new ClusterListener {
-              /**
-               * Handle a cluster event.
-               *
-               * @param event the <code>ClusterEvent</code> to handle
-               */
-              def handleClusterEvent(event: ClusterEvent) = event match {
-                case ClusterEvents.Connected(nodes) => updateCurrentState(nodes)
-                case ClusterEvents.NodesChanged(nodes) => updateCurrentState(nodes)
-                case ClusterEvents.Disconnected => updateCurrentState(Set.empty[Node])
-              }
-
-              private def updateCurrentState(nodes : Set[Node]) : Unit = {
-                this.synchronized {
-                  mirroredHosts.clear()
-                  nodes.foreach { node =>
-                    mirroredHosts.put(node.id, node)
-                  }
-                }
-              }
-            })
-            clusterIoClient = clusterIoClient_
-            initialized = true
+        clusterClient.addListener(new ClusterListener {
+          /**
+           * Handle a cluster event.
+           *
+           * @param event the <code>ClusterEvent</code> to handle
+           */
+          def handleClusterEvent(event: ClusterEvent) = event match {
+            case ClusterEvents.Connected(nodes) => updateCurrentState(nodes)
+            case ClusterEvents.NodesChanged(nodes) => updateCurrentState(nodes)
+            case ClusterEvents.Disconnected => updateCurrentState(Set.empty[Node])
           }
-        }
+
+          private def updateCurrentState(nodes : Set[Node]) : Unit = {
+            this.synchronized {
+              mirroredHosts.clear()
+              nodes.foreach { node =>
+                mirroredHosts.put(node.id, node)
+              }
+            }
+          }
+        })
+        clusterIoClient = clusterIoClient_
       }
     }
   }
 
-
-  class DownStreamHandler extends SimpleChannelDownstreamHandler with Logging {
+  class DownStreamHandler extends SimpleChannelDownstreamHandler {
 
     override def writeRequested(ctx: ChannelHandlerContext, msg: MessageEvent) {
       if (!mirroredHosts.isEmpty) {
@@ -166,3 +159,5 @@ object DarkCanaryChannelHandler {
     }
   }
 }
+
+
