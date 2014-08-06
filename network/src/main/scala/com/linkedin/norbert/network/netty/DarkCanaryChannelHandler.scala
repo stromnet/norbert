@@ -21,28 +21,55 @@ import com.linkedin.norbert.logging.Logging
 import com.linkedin.norbert.network.Request
 import com.linkedin.norbert.network.common.ClusterIoClientComponent
 import com.linkedin.norbert.cluster._
-import java.util.concurrent.{ConcurrentHashMap => JConcurrentHashMap}
+import java.util.concurrent.{ConcurrentHashMap => JConcurrentHashMap, ScheduledThreadPoolExecutor, TimeUnit}
 import java.util.UUID
 import com.linkedin.norbert.protos.NorbertProtos
 import com.linkedin.norbert.network.client.NetworkClientConfig
-import scala.Tuple2
 
 /**
- * Handle the forking of Dark Canary requests to the mirror hosts as well as collecting and (possibly) comparing
- * responses.
+ * This is a Netty channel handler which facilitates copying certain traffic to certain hosts based on configurations
+ * received from Zookeeper. It is intended to be used as a way to send traffic to 'dark' replicas of a production service.
+ * Responses from the 'dark' replica are never propagated to clients, and hence cannot affect the correctness of the
+ * service.
+ *
+ * The way it works is as follows:
+ *
+ *   1) We instantiate a new Zookeeper client which connects to a new (dark) service name. This client listens to changes
+ *      of membership / availability in this service name. The structure of this service name should be identical to the
+ *      structure of the production service name whose traffic we wish to mirror.
+ *
+ *   2) Traffic is mirrored based on the Node ids of the nodes in the dark service name: when a request is being sent
+ *      to production node id X, and if the dark service name also has a configuration for node id X, then the request
+ *      will be copied to the node with id X in the dark configuration. This logic is handled by the DownStreamHandler
+ *      class.
+ *
+ *   3) When a response comes back, its request id is checked by the UpstreamHandler class. If the request id of the
+ *      response matches the request id of a previously replicated request, the response is dropped. This ensures that
+ *      responses from the 'dark' hosts never reach clients.
+ *
+ * The DownstreamHandler is the first handler invoked in the downstream pipeline. THe UpstreamHandler is the first
+ * handler invoked in the upstream pipeline.
+ *
+ * If no dark canary service name is configured, then the DownstreamHandler and UpstreamHandlers will be no-ops.
+ *
+ * This code is intended to be used with a NettyNetworkClient, which schedules each request and response on a separate
+ * thread and executes requests asynchronously (ie. through select/poll/epoll etc. on channel sockets). This
+ * architecture implies that failures / delays in the mirrored requests and responses will not affect the production
+ * work load.
  */
 class DarkCanaryChannelHandler extends Logging {
-  private val requestMap = new JConcurrentHashMap[UUID, Tuple2[Request[Any,Any], Request[Any,Any]]]()
+  private val requestMap = new JConcurrentHashMap[UUID, Request[Any,Any]]()
   private val mirroredHosts= new JConcurrentHashMap[Int, Node]()
-
   private var clusterIoClient: ClusterIoClientComponent#ClusterIoClient = null
-
   private var clusterClient : ClusterClient = null
-
-
+  private var staleRequestTimeoutMins : Int = 0
+  private var staleRequestCleanupFrequencyMins : Int = 0
 
   def initialize(clientConfig : NetworkClientConfig, clusterIoClient_ : ClusterIoClientComponent#ClusterIoClient) = {
     clusterIoClient = clusterIoClient_
+    staleRequestTimeoutMins = clientConfig.staleRequestTimeoutMins + 1
+    staleRequestCleanupFrequencyMins = clientConfig.staleRequestCleanupFrequenceMins + 1
+
     clientConfig.darkCanaryServiceName match {
       case None => {
         log.info("Dark canaries not configured for client %s".format(clientConfig.clientName))
@@ -94,7 +121,7 @@ class DarkCanaryChannelHandler extends Logging {
               if (!request.node.url.equals(mirroredNode.url)) {
                 // This is a production request which we have to mirror.
                 try {
-                  log.info ("mirroring message from : %s to %s".format(request.node.url, mirroredNode.url))
+                  log.debug("mirroring message from : %s to %s".format(request.node.url, mirroredNode.url))
                   val newRequest = Request(request.message,
                     mirroredNode,
                     request.inputSerializer,
@@ -102,7 +129,7 @@ class DarkCanaryChannelHandler extends Logging {
                     None,
                     0)
 
-                  requestMap.put(newRequest.id, (request, newRequest))
+                  requestMap.put(newRequest.id, newRequest)
                   clusterIoClient.sendMessage(newRequest.node, newRequest)
                 }
                 catch {
@@ -117,7 +144,7 @@ class DarkCanaryChannelHandler extends Logging {
           }
         }
       }
-      super.writeRequested(ctx, msg)
+      super.writeRequested(ctx, msg)  // will call ctx.sendDownstream(msg)
     }
   }
 
@@ -131,16 +158,16 @@ class DarkCanaryChannelHandler extends Logging {
 
             val requestId = new UUID(message.getRequestIdMsb, message.getRequestIdLsb)
             requestMap.get(requestId) match {
-              case request: Tuple2[Request[Any,Any], Request[Any,Any]] =>  {
+              case request: Request[Any,Any] =>  {
                 requestMap.remove(requestId)
                 if (message.getStatus == NorbertProtos.NorbertMessage.Status.OK) {
-                  log.info("Dropping successful response from %s".format(request._2.node.url))
+                  log.debug("Dropping successful response from %s".format(request.node.url))
                 } else {
                   try {
                     // We did not get a successful response. Log an exception so that this is picked up by EKG.
                     throw new Exception("Got bad status %s for mirrored request %s".format(
                       message.getStatus.toString,
-                      request._2.toString()))
+                      request.toString()))
                   }
                   catch {
                     case e : Exception => {
@@ -153,7 +180,7 @@ class DarkCanaryChannelHandler extends Logging {
               }
               case _ => {
                 // This is not a mirrored request, Propagate the message upstream.
-                super.messageReceived(ctx, msg)
+                super.messageReceived(ctx, msg)  // will call ctx.sendUpstream(msg)
               }
             }
           }
@@ -164,6 +191,49 @@ class DarkCanaryChannelHandler extends Logging {
         super.messageReceived(ctx, msg)
       }
     }
+  }
+
+  // Cleanup old requests from the request map. In case the dark canary host is very slow, we do not want the request
+  // map to cause a memory leak by holding on to requests indefinitely.
+  val cleanupTask = new Runnable() {
+    val staleRequestTimeoutMillis = TimeUnit.MILLISECONDS.convert(staleRequestTimeoutMins, TimeUnit.MINUTES)
+
+    override def run() {
+      if (staleRequestTimeoutMins == 0) return
+      try {
+        import collection.JavaConversions._
+        var expiredEntryCount = 0
+
+        requestMap.keySet.foreach { uuid =>
+          val request = Option(requestMap.get(uuid))
+          val now = System.currentTimeMillis
+
+          request.foreach { r =>
+            if ((now - r.timestamp) > staleRequestTimeoutMillis) {
+              requestMap.remove(uuid)
+              expiredEntryCount += 1
+            }
+          }
+        }
+
+        if (expiredEntryCount > 0) {
+          log.info("Expired %d stale dark canary requests".format(expiredEntryCount))
+        }
+      } catch {
+        case e: InterruptedException =>
+          Thread.currentThread.interrupt
+          log.error(e, "Interrupted exception in cleanup task")
+        case e: Exception => log.error(e, "Exception caught in cleanup task, ignoring ")
+      }
+    }
+  }
+
+  val cleanupExecutor = new ScheduledThreadPoolExecutor(1)
+  if (staleRequestCleanupFrequencyMins > 0) {
+    cleanupExecutor.scheduleAtFixedRate(cleanupTask,
+      staleRequestCleanupFrequencyMins,
+      staleRequestCleanupFrequencyMins,
+      TimeUnit.MINUTES)
   }
 
   // These methods are currently only used to facilitate unit tests. There should be no calls to them from the rest of
