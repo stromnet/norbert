@@ -19,7 +19,7 @@ package com.linkedin.norbert.network.netty
 import org.jboss.netty.channel._
 import com.linkedin.norbert.logging.Logging
 import com.linkedin.norbert.network.Request
-import com.linkedin.norbert.network.common.ClusterIoClient
+import com.linkedin.norbert.network.common.ClusterIoClientComponent
 import com.linkedin.norbert.cluster._
 import java.util.concurrent.{ConcurrentHashMap => JConcurrentHashMap}
 import java.util.UUID
@@ -35,14 +35,17 @@ class DarkCanaryChannelHandler extends Logging {
   private val requestMap = new JConcurrentHashMap[UUID, Tuple2[Request[Any,Any], Request[Any,Any]]]()
   private val mirroredHosts= new JConcurrentHashMap[Int, Node]()
 
-  private var clusterIoClient: ClusterIoClient = null
+  private var clusterIoClient: ClusterIoClientComponent#ClusterIoClient = null
 
   private var clusterClient : ClusterClient = null
 
-  def initialize(clientConfig : NetworkClientConfig, clusterIoClient_ : ClusterIoClient) = {
+
+
+  def initialize(clientConfig : NetworkClientConfig, clusterIoClient_ : ClusterIoClientComponent#ClusterIoClient) = {
+    clusterIoClient = clusterIoClient_
     clientConfig.darkCanaryServiceName match {
       case None => {
-        println("Dark canaries not configured")
+        log.info("Dark canaries not configured for client %s".format(clientConfig.clientName))
       }
       case Some(serviceName) => {
         clusterClient = ClusterClient(clientConfig.clientName + "DarkCanary",
@@ -71,7 +74,11 @@ class DarkCanaryChannelHandler extends Logging {
             }
           }
         })
-        clusterIoClient = clusterIoClient_
+
+        log.info("Dark canaries configured for client: %s. Dark Canary configurations come from Zookeeper service name : %s".format(
+          clientConfig.clientName,
+          serviceName
+        ))
       }
     }
   }
@@ -114,7 +121,7 @@ class DarkCanaryChannelHandler extends Logging {
     }
   }
 
-  class UpstreamHandler extends SimpleChannelUpstreamHandler with Logging {
+  class UpstreamHandler extends SimpleChannelUpstreamHandler {
     override def messageReceived(ctx: ChannelHandlerContext, msg: MessageEvent) {
       if (!requestMap.isEmpty) {
         msg.getMessage match {
@@ -158,6 +165,10 @@ class DarkCanaryChannelHandler extends Logging {
       }
     }
   }
+
+  // These methods are currently only used to facilitate unit tests. There should be no calls to them from the rest of
+  // code.
+  def addNode(n : Node) : Unit = mirroredHosts.put(n.id, n)
+  def removeNode(id: Int) : Unit = mirroredHosts.remove(id)
+  def getInFlightRequestIds : Array[UUID] = requestMap.keySet().toArray.map { e => e.asInstanceOf[UUID]}
 }
-
-
