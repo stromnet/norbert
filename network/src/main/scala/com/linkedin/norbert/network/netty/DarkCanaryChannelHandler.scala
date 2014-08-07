@@ -57,16 +57,17 @@ import com.linkedin.norbert.network.client.NetworkClientConfig
  * architecture implies that failures / delays in the mirrored requests and responses will not affect the production
  * work load.
  */
+
 class DarkCanaryChannelHandler extends Logging {
   private val requestMap = new JConcurrentHashMap[UUID, Request[Any,Any]]()
   private val mirroredHosts= new JConcurrentHashMap[Int, Node]()
-  private var clusterIoClient: ClusterIoClientComponent#ClusterIoClient = null
-  private var clusterClient : ClusterClient = null
+  private var clusterIoClient: Option[ClusterIoClientComponent#ClusterIoClient] = None
+  private var clusterClient : Option[ClusterClient] = None
   private var staleRequestTimeoutMins : Int = 0
   private var staleRequestCleanupFrequencyMins : Int = 0
 
   def initialize(clientConfig : NetworkClientConfig, clusterIoClient_ : ClusterIoClientComponent#ClusterIoClient) = {
-    clusterIoClient = clusterIoClient_
+    clusterIoClient = Some(clusterIoClient_)
     staleRequestTimeoutMins = clientConfig.staleRequestTimeoutMins + 1
     staleRequestCleanupFrequencyMins = clientConfig.staleRequestCleanupFrequenceMins + 1
 
@@ -75,12 +76,12 @@ class DarkCanaryChannelHandler extends Logging {
         log.info("Dark canaries not configured for client %s".format(clientConfig.clientName))
       }
       case Some(serviceName) => {
-        clusterClient = ClusterClient(clientConfig.clientName + "DarkCanary",
+        clusterClient = Some(ClusterClient(clientConfig.clientName + "DarkCanary",
           serviceName,
           clientConfig.zooKeeperConnectString,
-          clientConfig.zooKeeperSessionTimeoutMillis)
+          clientConfig.zooKeeperSessionTimeoutMillis))
 
-        clusterClient.addListener(new ClusterListener {
+        clusterClient.get.addListener(new ClusterListener {
           /**
            * Handle a cluster event.
            *
@@ -118,7 +119,7 @@ class DarkCanaryChannelHandler extends Logging {
           case request : Request[Any,Any] => {
             if (mirroredHosts.containsKey(request.node.id)) {
               val mirroredNode = mirroredHosts.get(request.node.id)
-              if (!request.node.url.equals(mirroredNode.url)) {
+              if (!(request.node.url == mirroredNode.url)) {
                 // This is a production request which we have to mirror.
                 try {
                   log.debug("mirroring message from : %s to %s".format(request.node.url, mirroredNode.url))
@@ -130,7 +131,7 @@ class DarkCanaryChannelHandler extends Logging {
                     0)
 
                   requestMap.put(newRequest.id, newRequest)
-                  clusterIoClient.sendMessage(newRequest.node, newRequest)
+                  clusterIoClient.get.sendMessage(newRequest.node, newRequest)
                 }
                 catch {
                   case e : Exception => {
@@ -199,31 +200,32 @@ class DarkCanaryChannelHandler extends Logging {
     val staleRequestTimeoutMillis = TimeUnit.MILLISECONDS.convert(staleRequestTimeoutMins, TimeUnit.MINUTES)
 
     override def run() {
-      if (staleRequestTimeoutMins == 0) return
-      try {
-        import collection.JavaConversions._
-        var expiredEntryCount = 0
+      if (staleRequestTimeoutMins > 0) {
+        try {
+          import collection.JavaConversions._
+          var expiredEntryCount = 0
 
-        requestMap.keySet.foreach { uuid =>
-          val request = Option(requestMap.get(uuid))
-          val now = System.currentTimeMillis
+          requestMap.keySet.foreach { uuid =>
+            val request = Option(requestMap.get(uuid))
+            val now = System.currentTimeMillis
 
-          request.foreach { r =>
-            if ((now - r.timestamp) > staleRequestTimeoutMillis) {
-              requestMap.remove(uuid)
-              expiredEntryCount += 1
+            request.foreach { r =>
+              if ((now - r.timestamp) > staleRequestTimeoutMillis) {
+                requestMap.remove(uuid)
+                expiredEntryCount += 1
+              }
             }
           }
-        }
 
-        if (expiredEntryCount > 0) {
-          log.info("Expired %d stale dark canary requests".format(expiredEntryCount))
+          if (expiredEntryCount > 0) {
+            log.info("Expired %d stale dark canary requests".format(expiredEntryCount))
+          }
+        } catch {
+          case e: InterruptedException =>
+            Thread.currentThread.interrupt()
+            log.error(e, "Interrupted exception in cleanup task")
+          case e: Exception => log.error(e, "Exception caught in cleanup task, ignoring ")
         }
-      } catch {
-        case e: InterruptedException =>
-          Thread.currentThread.interrupt
-          log.error(e, "Interrupted exception in cleanup task")
-        case e: Exception => log.error(e, "Exception caught in cleanup task, ignoring ")
       }
     }
   }
