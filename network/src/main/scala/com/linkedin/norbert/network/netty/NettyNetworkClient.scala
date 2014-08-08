@@ -132,6 +132,8 @@ abstract class BaseNettyNetworkClient(clientConfig: NetworkClientConfig) extends
     writeTimeoutMillis = clientConfig.writeTimeoutMillis,
     bootstrap = bootstrap,
     closeChannelTimeMillis = clientConfig.closeChannelTimeMillis,
+    staleRequestTimeoutMins = clientConfig.staleRequestTimeoutMins + 1,
+    staleRequestCleanupFreqMins = clientConfig.staleRequestCleanupFrequenceMins,
     errorStrategy = Some(channelPoolStrategy),
     stats = stats)
 

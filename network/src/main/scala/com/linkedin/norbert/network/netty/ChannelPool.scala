@@ -21,7 +21,7 @@ import org.jboss.netty.bootstrap.ClientBootstrap
 import org.jboss.netty.channel.group.{ChannelGroup, DefaultChannelGroup}
 import org.jboss.netty.channel.{ChannelFutureListener, ChannelFuture, Channel}
 import org.jboss.netty.handler.codec.frame.LengthFieldBasedFrameDecoder
-import java.util.concurrent.{TimeoutException, ArrayBlockingQueue, LinkedBlockingQueue}
+import java.util.concurrent._
 import java.net.InetSocketAddress
 import jmx.JMX.MBean
 import jmx.JMX
@@ -32,12 +32,15 @@ import norbertutils.{Clock, SystemClock}
 import java.io.IOException
 import com.linkedin.norbert.network.common.{CachedNetworkStatistics, BackoffStrategy, SimpleBackoffStrategy}
 import java.util.UUID
+import scala.Some
 
 class ChannelPoolClosedException extends Exception
 
 class ChannelPoolFactory(maxConnections: Int, openTimeoutMillis: Int, writeTimeoutMillis: Int,
                          bootstrap: ClientBootstrap,
                          errorStrategy: Option[BackoffStrategy],
+                         staleRequestTimeoutMins: Int,
+                         staleRequestCleanupFreqMins: Int,
                          closeChannelTimeMillis: Long,
                          stats: CachedNetworkStatistics[Node, UUID]) {
 
@@ -50,6 +53,8 @@ class ChannelPoolFactory(maxConnections: Int, openTimeoutMillis: Int, writeTimeo
       bootstrap = bootstrap,
       channelGroup = group,
       closeChannelTimeMillis = closeChannelTimeMillis,
+      staleRequestTimeoutMins = staleRequestTimeoutMins,
+      staleRequestCleanupFreqMins = staleRequestCleanupFreqMins,
       errorStrategy = errorStrategy,
       clock = SystemClock,
       stats)
@@ -64,6 +69,8 @@ class ChannelPool(address: InetSocketAddress, maxConnections: Int, openTimeoutMi
                   bootstrap: ClientBootstrap,
                   channelGroup: ChannelGroup,
                   closeChannelTimeMillis: Long,
+                  staleRequestTimeoutMins: Int,
+                  staleRequestCleanupFreqMins: Int,
                   val errorStrategy: Option[BackoffStrategy],
                   clock: Clock,
                   stats: CachedNetworkStatistics[Node, UUID]) extends Logging {
@@ -81,6 +88,47 @@ class ChannelPool(address: InetSocketAddress, maxConnections: Int, openTimeoutMi
   private val softClosed = new AtomicBoolean
   private val requestsSent = new AtomicInteger(0)
   private val lock = new java.util.concurrent.locks.ReentrantReadWriteLock(true)
+
+
+  val cleanupTask = new Runnable() {
+    val staleRequestTimeoutMillis = TimeUnit.MILLISECONDS.convert(staleRequestTimeoutMins, TimeUnit.MINUTES)
+
+    override def run() {
+      if (staleRequestTimeoutMins > 0) {
+        try {
+          var expiredEntryCount = 0
+
+          val waitingRequestIter = waitingWrites.iterator()
+          while (waitingRequestIter.hasNext) {
+            val request = waitingRequestIter.next()
+            val now = System.currentTimeMillis
+            if ((now - request.timestamp) > staleRequestTimeoutMillis) {
+              waitingWrites.remove(request)
+              expiredEntryCount += 1
+            }
+          }
+
+          if (expiredEntryCount > 0) {
+            log.info("Expired %d stale waiting writes from the write queue.".format(expiredEntryCount))
+          }
+        } catch {
+          case e: InterruptedException =>
+            Thread.currentThread.interrupt()
+            log.error(e, "Interrupted exception in cleanup task")
+          case e: Exception => log.error(e, "Exception caught in cleanup task, ignoring ")
+        }
+      }
+    }
+  }
+
+  val cleanupExecutor = new ScheduledThreadPoolExecutor(1)
+  if (staleRequestCleanupFreqMins > 0) {
+    cleanupExecutor.scheduleAtFixedRate(cleanupTask,
+      staleRequestCleanupFreqMins,
+      staleRequestCleanupFreqMins,
+      TimeUnit.MINUTES)
+  }
+
 
   private val jmxHandle = JMX.register(new MBean(classOf[ChannelPoolMBean], "address=%s,port=%d".format(address.getHostName, address.getPort)) with ChannelPoolMBean {
     import scala.math._
