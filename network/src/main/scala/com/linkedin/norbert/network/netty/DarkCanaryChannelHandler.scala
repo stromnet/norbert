@@ -166,7 +166,6 @@ class DarkCanaryChannelHandler extends Logging {
           case message : NorbertProtos.NorbertMessage => {
             // Check if the request ID of the message corresponds to an existing mirrored request. If it does, then
             // just drop the message from the pipeline. This ensures that clients never see the message.
-
             val requestId = new UUID(message.getRequestIdMsb, message.getRequestIdLsb)
             requestMap.get(requestId) match {
               case request: Request[Any,Any] =>  {
@@ -208,7 +207,6 @@ class DarkCanaryChannelHandler extends Logging {
   // map to cause a memory leak by holding on to requests indefinitely.
   val cleanupTask = new Runnable() {
     val staleRequestTimeoutMillis = TimeUnit.MILLISECONDS.convert(staleRequestTimeoutMins, TimeUnit.MINUTES)
-
     override def run() {
       if (staleRequestTimeoutMins > 0) {
         try {
@@ -226,7 +224,6 @@ class DarkCanaryChannelHandler extends Logging {
               }
             }
           }
-
           if (expiredEntryCount > 0) {
             log.info("Expired %d stale dark canary requests".format(expiredEntryCount))
           }
@@ -239,8 +236,6 @@ class DarkCanaryChannelHandler extends Logging {
       }
     }
   }
-
-
 
   // These methods are currently only used to facilitate unit tests. There should be no calls to them from the rest of
   // code.
