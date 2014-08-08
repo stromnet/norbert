@@ -67,7 +67,7 @@ class DarkCanaryChannelHandler extends Logging {
   private var staleRequestTimeoutMins : Int = 0
   private var staleRequestCleanupFrequencyMins : Int = 0
 
-
+  class DarkCanaryException(message: String) extends Exception(message)
 
   def initialize(clientConfig : NetworkClientConfig, clusterIoClient_ : ClusterIoClientComponent#ClusterIoClient) = {
     clusterIoClient = Some(clusterIoClient_)
@@ -129,7 +129,7 @@ class DarkCanaryChannelHandler extends Logging {
           case request : Request[Any,Any] => {
             if (mirroredHosts.containsKey(request.node.id)) {
               val mirroredNode = mirroredHosts.get(request.node.id)
-              if (!(request.node.url == mirroredNode.url)) {
+              if (request.node.url != mirroredNode.url) {
                 // This is a production request which we have to mirror.
                 try {
                   log.debug("mirroring message from : %s to %s".format(request.node.url, mirroredNode.url))
@@ -176,7 +176,7 @@ class DarkCanaryChannelHandler extends Logging {
                 } else {
                   try {
                     // We did not get a successful response. Log an exception so that this is picked up by EKG.
-                    throw new Exception("Got bad status %s for mirrored request %s".format(
+                    throw new DarkCanaryException("Got bad status %s for mirrored request %s".format(
                       message.getStatus.toString,
                       request.toString()))
                   }
