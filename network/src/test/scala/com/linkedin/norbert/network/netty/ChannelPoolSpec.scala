@@ -38,7 +38,12 @@ class ChannelPoolSpec extends SpecificationWithJUnit with Mockito {
   val statsActor = CachedNetworkStatistics[Node, UUID](mockClock, 1000L, 200L)
 
   val channelPool = new ChannelPool(address, 1, 100, 100, bootstrap, channelGroup,
-    closeChannelTimeMillis = 10000, errorStrategy = None, clock = mockClock, stats = statsActor)
+    closeChannelTimeMillis = 10000,
+    staleRequestTimeoutMins = 1,
+    staleRequestCleanupFreqMins = 1,
+    errorStrategy = None,
+    clock = mockClock,
+    stats = statsActor)
 
   "ChannelPool" should {
     "close the ChannelGroup when close  is called" in {
@@ -152,8 +157,14 @@ class ChannelPoolSpec extends SpecificationWithJUnit with Mockito {
     }
 
     "not open a new channel if channel expiration is disabled" in {
-      val channelPool = new ChannelPool(address, 1, 100, 100, bootstrap, channelGroup,
-        closeChannelTimeMillis = -1L, errorStrategy = None, clock = mockClock, statsActor)
+      val channelPool = new ChannelPool(address, 1, 100, 100, bootstrap,
+        channelGroup,
+        closeChannelTimeMillis = -1L,
+        staleRequestTimeoutMins = 1,
+        staleRequestCleanupFreqMins = 1,
+        errorStrategy = None,
+        clock = mockClock,
+        statsActor)
       val channel = mock[Channel]
       val future = new TestChannelFuture(channel, true)
 

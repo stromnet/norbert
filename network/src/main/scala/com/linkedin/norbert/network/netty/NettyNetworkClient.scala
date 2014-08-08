@@ -23,13 +23,13 @@ import org.jboss.netty.handler.logging.LoggingHandler
 import org.jboss.netty.handler.codec.frame.{LengthFieldBasedFrameDecoder, LengthFieldPrepender}
 import org.jboss.netty.handler.codec.protobuf.{ProtobufDecoder, ProtobufEncoder}
 import java.util.concurrent.Executors
-import partitioned.loadbalancer.{DefaultClusteredLoadBalancerFactory, PartitionedLoadBalancerFactoryComponent, PartitionedLoadBalancerFactory}
+import partitioned.loadbalancer.{PartitionedLoadBalancerFactoryComponent, PartitionedLoadBalancerFactory}
 import partitioned.PartitionedNetworkClient
 import client.loadbalancer.{LoadBalancerFactoryComponent, LoadBalancerFactory}
 import com.linkedin.norbert.cluster.{Node, ClusterClient, ClusterClientComponent}
 import protos.NorbertProtos
 import org.jboss.netty.channel.{ChannelPipelineFactory, Channels}
-import client.{ThreadPoolResponseHandler, ResponseHandlerComponent, NetworkClient, NetworkClientConfig, NetworkClientComponent}
+import client.{ThreadPoolResponseHandler, ResponseHandlerComponent, NetworkClient, NetworkClientConfig}
 import com.linkedin.norbert.network.common.{CachedNetworkStatistics, CompositeCanServeRequestStrategy, SimpleBackoffStrategy, BaseNetworkClient}
 import java.util.{Map => JMap, UUID}
 import jmx.JMX
@@ -67,6 +67,8 @@ abstract class BaseNettyNetworkClient(clientConfig: NetworkClientConfig) extends
     avoidByteStringCopy = clientConfig.avoidByteStringCopy,
     stats = stats)
 
+  private val darkCanaryHandler = new DarkCanaryChannelHandler()
+
   // TODO why isn't clientConfig visible here?
   bootstrap.setOption("connectTimeoutMillis", connectTimeoutMillis)
   bootstrap.setOption("tcpNoDelay", true)
@@ -74,6 +76,8 @@ abstract class BaseNettyNetworkClient(clientConfig: NetworkClientConfig) extends
   bootstrap.setPipelineFactory(new ChannelPipelineFactory {
     private val loggingHandler = new LoggingHandler
     private val protobufDecoder = new ProtobufDecoder(NorbertProtos.NorbertMessage.getDefaultInstance)
+    private val darkCanaryDownstreamHandler = new darkCanaryHandler.DownStreamHandler()
+    private val darkCanaryUpstreamHandler = new darkCanaryHandler.UpstreamHandler()
     private val frameEncoder = new LengthFieldPrepender(4)
     private val protobufEncoder = new ProtobufEncoder
 
@@ -88,8 +92,17 @@ abstract class BaseNettyNetworkClient(clientConfig: NetworkClientConfig) extends
       p.addLast("frameEncoder", frameEncoder)
       p.addLast("protobufEncoder", protobufEncoder)
 
+      clientConfig.darkCanaryServiceName match {
+        case Some(serviceName) => p.addLast("darkCanaryUpstreamHandler", darkCanaryUpstreamHandler)
+        case None =>  // Do nothing. We register dark canary handlers only if a dark canary service name is specified.
+      }
+
       p.addLast("requestHandler", handler)
 
+      clientConfig.darkCanaryServiceName match {
+        case Some(serviceName) => p.addLast("darkDownstreamCanaryHandler", darkCanaryDownstreamHandler)
+        case None =>  // Do nothing. We register dark canary handlers only if a dark canary service name is specified.
+      }
       p
     }
   })
@@ -119,10 +132,17 @@ abstract class BaseNettyNetworkClient(clientConfig: NetworkClientConfig) extends
     writeTimeoutMillis = clientConfig.writeTimeoutMillis,
     bootstrap = bootstrap,
     closeChannelTimeMillis = clientConfig.closeChannelTimeMillis,
+    staleRequestTimeoutMins = clientConfig.staleRequestTimeoutMins + 1,
+    staleRequestCleanupFreqMins = clientConfig.staleRequestCleanupFrequenceMins,
     errorStrategy = Some(channelPoolStrategy),
     stats = stats)
 
   val clusterIoClient = new NettyClusterIoClient(channelPoolFactory, strategy)
+  clientConfig.darkCanaryServiceName match {
+    case Some(serviceName) => darkCanaryHandler.initialize(clientConfig, clusterIoClient)
+    case None => // Do nothing. We initialize dark canaries only if a dark canary service name is specified.
+  }
+
 
   override def shutdown = {
     if (clientConfig.clusterClient == null) clusterClient.shutdown else super.shutdown
