@@ -92,9 +92,17 @@ abstract class BaseNettyNetworkClient(clientConfig: NetworkClientConfig) extends
       p.addLast("frameEncoder", frameEncoder)
       p.addLast("protobufEncoder", protobufEncoder)
 
-      p.addLast("darkCanaryUpstreamHandler", darkCanaryUpstreamHandler)
+      clientConfig.darkCanaryServiceName match {
+        case Some(serviceName) => p.addLast("darkCanaryUpstreamHandler", darkCanaryUpstreamHandler)
+        case None =>  // Do nothing. We register dark canary handlers only if a dark canary service name is specified.
+      }
+
       p.addLast("requestHandler", handler)
-      p.addLast("darkDownstreamCanaryHandler", darkCanaryDownstreamHandler)
+
+      clientConfig.darkCanaryServiceName match {
+        case Some(serviceName) => p.addLast("darkDownstreamCanaryHandler", darkCanaryDownstreamHandler)
+        case None =>  // Do nothing. We register dark canary handlers only if a dark canary service name is specified.
+      }
       p
     }
   })
@@ -128,7 +136,11 @@ abstract class BaseNettyNetworkClient(clientConfig: NetworkClientConfig) extends
     stats = stats)
 
   val clusterIoClient = new NettyClusterIoClient(channelPoolFactory, strategy)
-  darkCanaryHandler.initialize(clientConfig, clusterIoClient)
+  clientConfig.darkCanaryServiceName match {
+    case Some(serviceName) => darkCanaryHandler.initialize(clientConfig, clusterIoClient)
+    case None => // Do nothing. We initialize dark canaries only if a dark canary service name is specified.
+  }
+
 
   override def shutdown = {
     if (clientConfig.clusterClient == null) clusterClient.shutdown else super.shutdown

@@ -61,10 +61,13 @@ import com.linkedin.norbert.network.client.NetworkClientConfig
 class DarkCanaryChannelHandler extends Logging {
   private val requestMap = new JConcurrentHashMap[UUID, Request[Any,Any]]()
   private val mirroredHosts= new JConcurrentHashMap[Int, Node]()
+  private final val darkCanaryClientNameSuffix = "DarkCanary"
   private var clusterIoClient: Option[ClusterIoClientComponent#ClusterIoClient] = None
   private var clusterClient : Option[ClusterClient] = None
   private var staleRequestTimeoutMins : Int = 0
   private var staleRequestCleanupFrequencyMins : Int = 0
+
+
 
   def initialize(clientConfig : NetworkClientConfig, clusterIoClient_ : ClusterIoClientComponent#ClusterIoClient) = {
     clusterIoClient = Some(clusterIoClient_)
@@ -76,7 +79,7 @@ class DarkCanaryChannelHandler extends Logging {
         log.info("Dark canaries not configured for client %s".format(clientConfig.clientName))
       }
       case Some(serviceName) => {
-        clusterClient = Some(ClusterClient(clientConfig.clientName + "DarkCanary",
+        clusterClient = Some(ClusterClient(clientConfig.clientName + darkCanaryClientNameSuffix,
           serviceName,
           clientConfig.zooKeeperConnectString,
           clientConfig.zooKeeperSessionTimeoutMillis))
@@ -103,6 +106,14 @@ class DarkCanaryChannelHandler extends Logging {
           }
         })
 
+        val cleanupExecutor = new ScheduledThreadPoolExecutor(1)
+        if (staleRequestCleanupFrequencyMins > 0) {
+          cleanupExecutor.scheduleAtFixedRate(cleanupTask,
+            staleRequestCleanupFrequencyMins,
+            staleRequestCleanupFrequencyMins,
+            TimeUnit.MINUTES)
+        }
+
         log.info("Dark canaries configured for client: %s. Dark Canary configurations come from Zookeeper service name : %s".format(
           clientConfig.clientName,
           serviceName
@@ -112,7 +123,6 @@ class DarkCanaryChannelHandler extends Logging {
   }
 
   class DownStreamHandler extends SimpleChannelDownstreamHandler {
-
     override def writeRequested(ctx: ChannelHandlerContext, msg: MessageEvent) {
       if (!mirroredHosts.isEmpty) {
         msg.getMessage match {
@@ -230,13 +240,7 @@ class DarkCanaryChannelHandler extends Logging {
     }
   }
 
-  val cleanupExecutor = new ScheduledThreadPoolExecutor(1)
-  if (staleRequestCleanupFrequencyMins > 0) {
-    cleanupExecutor.scheduleAtFixedRate(cleanupTask,
-      staleRequestCleanupFrequencyMins,
-      staleRequestCleanupFrequencyMins,
-      TimeUnit.MINUTES)
-  }
+
 
   // These methods are currently only used to facilitate unit tests. There should be no calls to them from the rest of
   // code.
