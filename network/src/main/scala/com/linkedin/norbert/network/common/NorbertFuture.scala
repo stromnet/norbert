@@ -285,10 +285,10 @@ class RetryStrategy(var timeoutForRetry: Long, var thresholdNodeFailures: Int, v
    */
   def onTimeout(numNodeFailures: Int):Tuple2[Option[RetryStrategy],Boolean] = {
     if(numNodeFailures <= thresholdNodeFailures) {
-      log.warn("RetryStrategy: retry kicked in for %d failures".format(numNodeFailures))
+      log.info("RetryStrategy: retry kicked in for %d failures".format(numNodeFailures))
       return Tuple2(nextRetryStrategy,true)
     }
-    log.warn("RetryStrategy: too many failures %d more than retry threshold".format(numNodeFailures))
+    log.info("RetryStrategy: too many failures %d more than retry threshold".format(numNodeFailures))
     return Tuple2(None,false) 
   }
 }
@@ -517,7 +517,7 @@ class SelectiveRetryIterator[PartitionedId, RequestMsg, ResponseMsg](
       }
     }
     if(!returnVal)
-      log.warn("Completed processing the scatter gather: retryInfo:%s".format(retryMessage))
+      log.debug("Completed processing the scatter gather: retryInfo:%s".format(retryMessage))
     returnVal
   }
 }

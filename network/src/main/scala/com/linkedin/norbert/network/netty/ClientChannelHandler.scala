@@ -200,7 +200,7 @@ class ClientStatisticsRequestStrategy(val stats: CachedNetworkStatistics[Node, U
       val available = nodeMedian <= clusterMedian * outlierMultiplier + outlierConstant
 
       if (!available) {
-        log.warn("Node %s has a median response time of %f. The cluster response time is %f. Routing requests away temporarily.".format(n, nodeMedian, clusterMedian))
+        log.info("Node %s has a median response time of %f. The cluster response time is %f. Routing requests away temporarily.".format(n, nodeMedian, clusterMedian))
         totalNodesMarkedDown.incrementAndGet
       }
       (n, available)

@@ -325,7 +325,7 @@ trait PartitionedNetworkClient[PartitionedId] extends BaseNetworkClient {
     if (ids == null || requestBuilder == null) throw new NullPointerException
     val nodes = calculateNodesFromIds(ids, numberOfReplicas, capability, persistentCapability)
 
-    log.info("Total number of ids: %d, selected nodes: %d, ids per node: [%s]".format(ids.size, nodes.size,
+    log.debug("Total number of ids: %d, selected nodes: %d, ids per node: [%s]".format(ids.size, nodes.size,
       nodes.view.map {
         case (node, idsForNode) => idsForNode.size
       } mkString("", ",", "")
