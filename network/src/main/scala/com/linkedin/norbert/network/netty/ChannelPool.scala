@@ -114,7 +114,7 @@ class ChannelPool(address: InetSocketAddress, maxConnections: Int, openTimeoutMi
         } catch {
           case e: InterruptedException =>
             Thread.currentThread.interrupt()
-            log.error(e, "Interrupted exception in cleanup task")
+            log.info(e, "Interrupted exception in cleanup task")
           case e: Exception => log.error(e, "Exception caught in cleanup task, ignoring ")
         }
       }
@@ -237,7 +237,7 @@ class ChannelPool(address: InetSocketAddress, maxConnections: Int, openTimeoutMi
             val poolEntry = PoolEntry(channel, System.currentTimeMillis())
             checkinChannel(poolEntry, isFirstWriteToChannel = true)
           } else {
-            log.error(openFuture.getCause, "Error when opening channel to: %s, marking offline".format(address))
+            log.warn(openFuture.getCause, "Error when opening channel to: %s, marking offline".format(address))
             errorStrategy.foreach(_.notifyFailure(request.node))
             poolSize.decrementAndGet
 
@@ -254,7 +254,7 @@ class ChannelPool(address: InetSocketAddress, maxConnections: Int, openTimeoutMi
     channel.write(request).addListener(new ChannelFutureListener {
       def operationComplete(writeFuture: ChannelFuture) = if (!writeFuture.isSuccess) {
         // Take the node out of rotation for a bit
-        log.error("IO exception for " + request.node + ", marking node offline")
+        log.warn("IO exception for " + request.node + ", marking node offline")
         errorStrategy.foreach(_.notifyFailure(request.node))
         channel.close
         request.onFailure(writeFuture.getCause)
