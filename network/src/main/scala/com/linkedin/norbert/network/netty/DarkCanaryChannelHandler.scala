@@ -71,6 +71,18 @@ class DarkCanaryChannelHandler extends Logging {
 
   def initialize(clientConfig : NetworkClientConfig, clusterIoClient_ : ClusterIoClientComponent#ClusterIoClient) = {
     clusterIoClient = Some(clusterIoClient_)
+
+    // The configuration variables below determine the minimum age for cleaning up the Request objects in the
+    // requestMap. The clientConfig.{staleRequestTimeoutMins,staleRequestCleanupFrequenceMins} are the values used in
+    // the upstream ClientChannelHandler to clean up stale requests. Hence the dark canary channel handler is configured
+    // by default to both clean its request map less frequently, and also clean request objects which are older than
+    // their counterparts in the ClientChannelHandler.
+    //
+    // This setup ensures request objects will be dropped from ClientChannelHandler.requestMap _before_ they are dropped
+    // from DarkCanaryChannelHandler.requestMap, hence ensuring that dark canary responses can never be propagated
+    // upstream.
+    //
+    // Do not change these configurations without careful thought.
     staleRequestTimeoutMins = clientConfig.staleRequestTimeoutMins + 1
     staleRequestCleanupFrequencyMins = clientConfig.staleRequestCleanupFrequenceMins + 1
 
