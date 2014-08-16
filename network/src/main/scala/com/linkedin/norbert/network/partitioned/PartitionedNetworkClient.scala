@@ -171,7 +171,7 @@ trait PartitionedNetworkClient[PartitionedId] extends BaseNetworkClient {
    * must be sent to.  This method is asynchronous and will return immediately.
    *
    * @param id the <code>PartitionedId</code> to which the message is addressed
-   * @param message the message to send
+   * @param request the request to send
    *
    * @return a future which will become available when a response to the message is received
    * @throws InvalidClusterException thrown if the cluster is currently in an invalid state
@@ -201,7 +201,7 @@ trait PartitionedNetworkClient[PartitionedId] extends BaseNetworkClient {
    * must be sent to.  This method is asynchronous and will return immediately.
    *
    * @param ids the <code>PartitionedId</code>s to which the message is addressed
-   * @param message the request to send
+   * @param request the request to send
    *
    * @return a <code>ResponseIterator</code>. One response will be returned by each <code>Node</code>
    * the message was sent to.
@@ -228,7 +228,6 @@ trait PartitionedNetworkClient[PartitionedId] extends BaseNetworkClient {
    * must be sent to.  This method is asynchronous and will return immediately.
    *
    * @param ids the <code>PartitionedId</code>s to which the message is addressed
-   * @param message the message to send
    * @param requestBuilder A method which allows the user to generate a specialized request for a set of partitions
    * before it is sent to the <code>Node</code>.
    *
@@ -287,7 +286,7 @@ trait PartitionedNetworkClient[PartitionedId] extends BaseNetworkClient {
    * must be sent to.  This method is asynchronous and will return immediately.
    *
    * @param ids the <code>PartitionedId</code>s to which the message is addressed
-   * @param message the message to send
+   * @param numberOfReplicas the number of replica you want to fan-out requests.
    * @param requestBuilder A method which allows the user to generate a specialized request for a set of partitions
    * before it is sent to the <code>Node</code>.
    * @param maxRetry maxium # of retry attempts
@@ -393,7 +392,6 @@ trait PartitionedNetworkClient[PartitionedId] extends BaseNetworkClient {
    * must be sent to.  This method is synchronous and will return once the responseAggregator has returned a value.
    *
    * @param ids the <code>PartitionedId</code>s to which the message is addressed
-   * @param message the message to send
    * @param requestBuilder A method which allows the user to generate a specialized request for a set of partitions
    * before it is sent to the <code>Node</code>.
    * @param responseAggregator a callback method which allows the user to aggregate all the responses
