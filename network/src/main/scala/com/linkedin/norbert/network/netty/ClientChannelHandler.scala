@@ -69,8 +69,9 @@ class ClientChannelHandler(clientName: Option[String],
              }
           }
         }
-
-        log.info("Expired %d stale entries from the request map".format(expiredEntryCount))
+        if (expiredEntryCount > 0) {
+          log.info("Expired %d stale entries from the request map".format(expiredEntryCount))
+        }
       } catch {
         case e: InterruptedException =>
           Thread.currentThread.interrupt
