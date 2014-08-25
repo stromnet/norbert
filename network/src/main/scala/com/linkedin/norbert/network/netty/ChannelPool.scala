@@ -20,6 +20,7 @@ package netty
 import org.jboss.netty.bootstrap.ClientBootstrap
 import org.jboss.netty.channel.group.{ChannelGroup, DefaultChannelGroup}
 import org.jboss.netty.channel.{ChannelFutureListener, ChannelFuture, Channel}
+import org.jboss.netty.channel.ConnectTimeoutException
 import org.jboss.netty.handler.codec.frame.LengthFieldBasedFrameDecoder
 import java.util.concurrent._
 import java.net.InetSocketAddress
@@ -237,7 +238,12 @@ class ChannelPool(address: InetSocketAddress, maxConnections: Int, openTimeoutMi
             val poolEntry = PoolEntry(channel, System.currentTimeMillis())
             checkinChannel(poolEntry, isFirstWriteToChannel = true)
           } else {
-            log.warn(openFuture.getCause, "Error when opening channel to: %s, marking offline".format(address))
+            openFuture.getCause match {
+              case _:ConnectTimeoutException =>
+                log.warn(openFuture.getCause, "Timeout when opening channel to: %s, marking offline".format(address))
+              case _ =>
+                log.error(openFuture.getCause, "Error when opening channel to: %s, marking offline".format(address))
+            }
             errorStrategy.foreach(_.notifyFailure(request.node))
             poolSize.decrementAndGet
 
