@@ -64,11 +64,11 @@ object ClusterDependencies {
 }
 
 object NetworkDependencies {
-  val NETTY_VER = "3.2.3.Final"
+  val NETTY_VER = "3.7.0.Final"
   val SLF4J_VER = "1.5.6"
   val JUNIT_VER = "4.8.1"
 
-  val netty = "org.jboss.netty" % "netty" % NETTY_VER
+  val netty = "io.netty" % "netty" % NETTY_VER
   val slf4j = "org.slf4j" % "slf4j-api" % SLF4J_VER
   val slf4jLog4j = "org.slf4j" % "slf4j-log4j12" % SLF4J_VER
   val junit = "junit" % "junit" % JUNIT_VER % "test"
