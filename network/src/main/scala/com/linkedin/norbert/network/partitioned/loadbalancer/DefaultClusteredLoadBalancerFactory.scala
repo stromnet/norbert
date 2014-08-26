@@ -89,10 +89,9 @@ abstract class DefaultClusteredLoadBalancerFactory[PartitionedId](numPartitions:
      * @param persistentCapability
      * @return a map from node to partition
      */
-    override def nodesForPartitionsIdsInNReplicas(ids: Set[PartitionedId],
-                                                  numberOfReplicas: Int,
-                                                  capability: Option[Long] = None,
-                                                  persistentCapability: Option[Long] = None): Map[Node, Set[PartitionedId]] = {
+    override def nodesForPartitionedIdsInNReplicas(ids: Set[PartitionedId], numberOfReplicas: Int,
+        capability: Option[Long] = None, persistentCapability: Option[Long] = None): Map[Node, Set[PartitionedId]] =
+    {
       // Randomly sorted cluster set.
       val clusterSet = Random.shuffle(clusterToNodeMap.keySet.toList)
       val numReplicas = if (numberOfReplicas > clusterSet.size || numberOfReplicas == 0) clusterSet.size
@@ -120,10 +119,10 @@ abstract class DefaultClusteredLoadBalancerFactory[PartitionedId](numPartitions:
      * @param persistentCapability
      * @return a map from node to partition
      */
-    override def nodesForPartitionsIdsInOneCluster(ids: Set[PartitionedId], clusterId: Int,
+    override def nodesForPartitionedIdsInOneCluster(ids: Set[PartitionedId], clusterId: Int,
         capability: Option[Long] = None, persistentCapability: Option[Long] = None): Map[Node, Set[PartitionedId]] = {
 
-      // Pick up the clusters from the randomly sorted set.
+      // Check whether cluster map contains the given cluster id.
       clusterToNodeMap.get(clusterId) match {
         case Some(nodes) => {
           ids.foldLeft(Map[Node, Set[PartitionedId]]().withDefaultValue(Set())) {
@@ -133,7 +132,7 @@ abstract class DefaultClusteredLoadBalancerFactory[PartitionedId](numPartitions:
               map.updated(node, map(node) + id)
           }
         }
-        case None => throw new InvalidClusterException("Unable to satisfy request, no cluster for id %s"
+        case None => throw new InvalidClusterException("Unable to satisfy single cluster request, no cluster for id %s"
             .format(clusterId))
       }
     }
@@ -173,6 +172,9 @@ abstract class DefaultClusteredLoadBalancerFactory[PartitionedId](numPartitions:
           var loopCount = 0
           do {
             val endpoint = endpoints(i % es)
+            // Filter the node with the given cluster id. Then, check whether the isOneCluster flag. If this call is for
+            // only one cluster, we should not check the node status since it can cause selecting nodes from other
+            // clusters.
             if(cluster.contains(clusterId(endpoint.node)) && (isOneCluster || (endpoint.canServeRequests
                 && endpoint.node.isCapableOf(capability, persistentCapability)))) {
               compensateCounter(idx, loopCount, counter);
@@ -185,7 +187,7 @@ abstract class DefaultClusteredLoadBalancerFactory[PartitionedId](numPartitions:
           } while (loopCount <= es)
           compensateCounter(idx, loopCount, counter);
           if (isOneCluster)
-            throw new NoNodesAvailableException("Unable to satisfy request, no node available for id %s"
+            throw new NoNodesAvailableException("Unable to satisfy single cluster request, no node available for id %s"
                 .format(partitionId))
           return endpoints(idx % es).node
       }
