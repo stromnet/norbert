@@ -330,7 +330,11 @@ trait PartitionedNetworkClient[PartitionedId] extends BaseNetworkClient {
         os: OutputSerializer[RequestMsg, ResponseMsg]): ResponseIterator[ResponseMsg] = doIfConnected
   {
     if (ids == null || requestBuilder == null) throw new NullPointerException
-    val nodes = calculateNodesFromIds(ids, numberOfReplicas, capability, persistentCapability)
+
+    val nodes = clusterId match {
+      case Some(clusterId:Int) => calculateNodesFromIdsInCluster (ids, clusterId, capability, persistentCapability)
+      case None => calculateNodesFromIds (ids, numberOfReplicas, capability, persistentCapability)
+    }
 
     log.debug("Total number of ids: %d, selected nodes: %d, ids per node: [%s]".format(ids.size, nodes.size,
       nodes.view.map {
