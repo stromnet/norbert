@@ -143,7 +143,14 @@ class ClientChannelHandler(clientName: Option[String],
     }
   }
 
-  override def exceptionCaught(ctx: ChannelHandlerContext, e: ExceptionEvent) = log.warn(e.getCause, "Caught exception in network layer")
+  override def exceptionCaught(ctx: ChannelHandlerContext, e: ExceptionEvent) = {
+    e.getCause match {
+      case _:ConnectTimeoutException =>
+        log.warn("Caught connect timeout in network layer")
+      case _ =>
+        log.warn(e.getCause, "Caught exception in network layer")
+    }
+  }
 
   def shutdown: Unit = {
     responseHandler.shutdown
