@@ -147,8 +147,8 @@ class ClientChannelHandler(clientName: Option[String],
     e.getCause match {
       case _:ConnectTimeoutException =>
         log.warn("Caught connect timeout in network layer")
-      case _ =>
-        log.warn(e.getCause, "Caught exception in network layer")
+      case cause =>
+        log.warn(cause, "Caught exception in network layer")
     }
   }
 

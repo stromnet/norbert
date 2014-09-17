@@ -241,8 +241,8 @@ class ChannelPool(address: InetSocketAddress, maxConnections: Int, openTimeoutMi
             openFuture.getCause match {
               case _:ConnectTimeoutException =>
                 log.warn("Timeout when opening channel to: %s, marking offline".format(address))
-              case _ =>
-                log.error(openFuture.getCause, "Error when opening channel to: %s, marking offline".format(address))
+              case cause =>
+                log.error(cause, "Error when opening channel to: %s, marking offline".format(address))
             }
             errorStrategy.foreach(_.notifyFailure(request.node))
             poolSize.decrementAndGet
