@@ -1,12 +1,62 @@
 What is Norbert
 ===============
 
-Norbert is a library which provides easy cluster management and cluster aware client/server networking APIs.  Implemented in Scala, Norbert wraps ZooKeeper, Netty and uses Protocol Buffers for transport to make it easy to build a cluster aware application.  A Java API is provided and pluggable load balancing strategies are supported with round robin and consistent hash strategies provided out of the box.
+Norbert is a library that provides easy cluster management and cluster aware client/server networking APIs.  Implemented in Scala, Norbert wraps ZooKeeper, Netty and uses Protocol Buffers for transport to make it easy to build a cluster aware application.  A Java API is provided and pluggable load balancing strategies are supported with round robin and consistent hash strategies provided out of the box.
 
 Building
 ----------
 
-Norbert can be built using Maven.
+Prerequisites: Java 6 or 7. Norbert uses Scala 2.10, which currently has a compatibility issue with Java 8.
+
+Norbert is configured as an sbt project. The following command from the root of the project folder will run all unit tests:
+
+./sbt test
+
+Norbert can be built using the sbt console. Run ./sbt to open the console.
+
+Then, select a project using the project command:
+
+project {project name}
+ 
+The following is a list of available projects in Norbert
+-       norbert – covers all files in modules
+
+-       network – network related resource module
+
+-       cluster – cluster related resource module
+
+-       java_network – java version of network module
+
+-       java_cluster – cluster related resource module
+
+-       example – example module
+
+NOTE: The example module currently has some issues, see the next section for an alternative.
+
+Once you select the project, you can run the following commands:
+
+-       clean: cleans up all compiled packages
+
+-       test: runs unit tests in the specified project
+
+-       compile: compiles all scala and java files
+
+-       package: build and creates jar file.
+
+The location of classes file and jar files generated from the compile and package commands would be shown in the sbt console message as follows:
+ 
+[info] Packaging /Users/scho/workspace/github/OpenSource/norbert/network/target/scala-2.8.1.final/network_2.8.1-0.6.65.jar …
+
+Example Usage of Norbert 
+------------------------
+
+The example module currently provided in this repo does not run. We are working on resolving that. For now, an example runnable project that executes a simple Pimple/Pong client/server interaction can be run from: https://github.com/sungjuc/norbert_examples .
+
+To run ZooKeeper as mentioned there, first follow the guides for downloading and installing it. Then, run:
+
+sudo /usr/share/zookeeper/bin/zkServer.sh start
+
+to start the ZooKeeper server locally. The example is configured to use IntelliJ IDEA; it can simply be opened as a project in IDEA.
 
 Using Norbert for cluster management
 ------------------------------------
