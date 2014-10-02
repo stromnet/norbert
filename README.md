@@ -85,7 +85,7 @@ Number 1 is most commonly the case that an administrator has specified the node 
 
 ### Defining the cluster
 
-To set up a cluster use the `addNode` and `removeNode` methods on the `Cluster` trait. These metods create Znodes in ZooKeeper which store the Node's hostname/port and aprtition mapping metadata. Customr tools can be written using these methods in your own code.
+To set up a cluster use the `addNode` and `removeNode` methods on the `Cluster` trait. These methods create Znodes in ZooKeeper which store the Node's hostname/port and partition mapping metadata. Customr tools can be written using these methods in your own code.
 
 In the examples module there is a command line program for defining a cluster which is not currently functional, `NorbertClusterClientMain`. Its intended functionality is that at the prompt you could type
 
