@@ -45,15 +45,21 @@ The location of classes file and jar files generated from the compile and packag
 Example Usage of Norbert 
 ------------------------
 
-TODO: Add how we can run the Norbert examples.
+Before you run the examples in Norbert, you should start the Zookeeper server locally and configure it using
+the default configuration. Guidelines for downloading and installing Zookeeper can be found here:
+http://zookeeper.apache.org/doc/r3.1.2/zookeeperStarted.html.
 
-For now, an example runnable project that executes a simple Pimple/Pong client/server interaction can be run from: https://github.com/sungjuc/norbert_examples .
+The examples in Norbert can be run through through the terminal window. Once in your Norbert folder,
+run the following commands: `./sbt`, `project examples`, `package`. From here, there are 6 examples that you can
+run in Norbert using the command: `run-main (filename) "norbert" "localhost:2181"`. The filename choices are:
 
-To run ZooKeeper as mentioned there, first follow the guides for downloading and installing it. Then, run:
+ `com.linkedin.norbert.javacompat.network.RunNorbertSetup`
+ `com.linkedin.norbert.network.NorbertNetworkServerMain`
+ `com.linkedin.norbert.javacompat.network.NorbertJavaNetworkServerMain`
+ `com.linkedin.norbert.cluster.NorbertClusterClientMain`
+ `com.linkedin.norbert.network.NorbertNetworkClientMain`
+ `com.linkedin.norbert.javacompat.network.NorbertJavaNetworkClientMain`
 
-`sudo /usr/share/zookeeper/bin/zkServer.sh start`
-
-to start the ZooKeeper server locally. The example is configured to use IntelliJ IDEA; it can simply be opened as a project in IDEA.
 
 Using Norbert for cluster management
 ------------------------------------
