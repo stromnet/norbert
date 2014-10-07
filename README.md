@@ -74,13 +74,13 @@ A Node is Norbert's representation of a service which can handle requests.  A No
 
 1. A numerical id assigned by the client creating the Node. Norbert does not auto assign Node ids.
 2. The URL to use to contact the node.
-3. Optionally, one or more partition ids, representing the particular partitions the services handles.
+3. Optionally, one or more partition ids, representing the particular partitions the services handle.
 
 If an application is designed around a partitioned data set or workload then each node can be assigned partition ids.  These partition ids can be used by Norbert's networking layer's partitioned load balancer functionality.
 
 The set of member Nodes in a given cluster is reliably stored in ZooKeeper.  Additionally, a Node can advertise that it is available to process requests.  In general, a Node can be in one of three states:
 
-1. A member of the cluster, but not advertised as available.  In this state the other nodes in the cluster know the node exists, but should not attempt to send it traffic
+1. A member of the cluster, but not advertised as available.  In this state the other nodes in the cluster know the node exists, but should not attempt to send it traffic.
 2. Not a member of the cluster, but available.  In this state, the node can handle requests, but it is unknown to the other nodes in the cluster.
 3. A member of the cluster and available.  In this state the node is known in the cluster and it should be sent traffic.
 
@@ -108,7 +108,7 @@ Norbert provides two ways to interact with the cluster.
 ```scala
 object NorbertClient {
   def main(args: Array[String]) {
-    val cc = ClusterClient("norbert", "localhost:2181", 30000) (1)
+    val cc = ClusterClient("generic_name", "norbert", "localhost:2181", 30000) (1)
     cc.awaitConnectionUninterruptibly (2)
     cc.nodes (3)
     cc.addListener(new MyClusterListener) (4)
@@ -130,12 +130,12 @@ object NorbertClient {
 ```java
 public class NorbertClient {
   public static void main(String[] args) {
-    ClusterClient cc = new ZooKeeperClusterClient("norbert", "localhost:2181", 30000); (1)
-    cc.awaiteConnectionUninterruptibly(); (2)
+    ClusterClient cc = new ZooKeeperClusterClient("generic_name", "norbert", "localhost:2181", 30000); (1)
+    cc.awaitConnectionUninterruptibly(); (2)
     cc.getNodes(); (3)
     cc.addListener(new MyClusterListener()); (4)
-    cc.markNodeAvailable(1); (5).
-    cluster.shutdown(6)
+    cc.markNodeAvailable(1); (5)
+    cluster.shutdown; (6)
   }
 }
 ```
@@ -168,7 +168,7 @@ Norbert's client/server library uses message passing semantics and, specifically
 
 Norbert uses a software load balancer mechanism to route a request from a client to a server. Both partitioned and unpartitioned clusters are supported.
 
-If you are building a service which will use an unpartitioned cluster, you must provide your `NetworkClient` instance with a `LoadBalancerFactory`. The `LoadBalancerFactory` is used to create `LoadBalancer` instance that will be used to route requests.  A round robin load balancer factory is provided.
+If you are building a service which will use an unpartitioned cluster, you must provide your `NetworkClient` instance with a `LoadBalancerFactory`. The `LoadBalancerFactory` is used to create the `LoadBalancer` instance that will be used to route requests.  A round robin load balancer factory is provided.
 
 If you are building a partitioned cluster then you will want to use the `PartitionedNetworkClient` and a `PartitionedLoadBalancerFactory`. These are generic classes that have a PartitionedId type parameter. PartitionedId is the type of the id that you use to partition your cluster (e.g. a member id). A consistent hash load balancer factory is provided.
 
