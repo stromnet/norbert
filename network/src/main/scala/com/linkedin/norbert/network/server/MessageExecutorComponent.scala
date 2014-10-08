@@ -82,6 +82,7 @@ class ThreadPoolMessageExecutor(clientName: Option[String],
 
     override def beforeExecute(t: Thread, r: Runnable) = {
       val rr = r.asInstanceOf[RequestRunner[_, _]]
+
       statsActor.beginRequest(0, rr.id, (System.currentTimeMillis() - rr.queuedAt) * 1000)
     }
 

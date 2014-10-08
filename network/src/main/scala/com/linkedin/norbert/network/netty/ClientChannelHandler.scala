@@ -45,8 +45,7 @@ class ClientChannelHandler(clientName: Option[String],
                            outlierMultiplier: Double,
                            outlierConstant: Double,
                            responseHandler: ResponseHandler,
-                           avoidByteStringCopy: Boolean,
-                           stats : CachedNetworkStatistics[Node, UUID]) extends SimpleChannelHandler with Logging {
+                           avoidByteStringCopy: Boolean) extends SimpleChannelHandler with Logging {
   private val requestMap = new ConcurrentHashMap[UUID, Request[_, _]]
 
   val cleanupTask = new Runnable() {
@@ -85,6 +84,9 @@ class ClientChannelHandler(clientName: Option[String],
 
   val cleanupExecutor = new ScheduledThreadPoolExecutor(1)
   cleanupExecutor.scheduleAtFixedRate(cleanupTask, staleRequestCleanupFrequencyMins, staleRequestCleanupFrequencyMins, TimeUnit.MINUTES)
+
+  private val stats = CachedNetworkStatistics[Node, UUID](clock, requestStatisticsWindow, 200L)
+
   val clientStatsStrategy = new ClientStatisticsRequestStrategy(stats, outlierMultiplier, outlierConstant, clock)
   val serverErrorStrategy = new SimpleBackoffStrategy(clock)
 
@@ -98,6 +100,7 @@ class ClientChannelHandler(clientName: Option[String],
   override def writeRequested(ctx: ChannelHandlerContext, e: MessageEvent) = {
     val request = e.getMessage.asInstanceOf[Request[_, _]]
     log.debug("Writing request: %s".format(request))
+
     if(!request.callback.isEmpty) {
       requestMap.put(request.id, request)
       stats.beginRequest(request.node, request.id, 0)
@@ -125,7 +128,9 @@ class ClientChannelHandler(clientName: Option[String],
       }
       case request =>
         requestMap.remove(requestId)
+
         stats.endRequest(request.node, request.id)
+
         if (message.getStatus == NorbertProtos.NorbertMessage.Status.OK) {
           responseHandler.onSuccess(request, message)
         } else if (message.getStatus == NorbertProtos.NorbertMessage.Status.HEAVYLOAD) {

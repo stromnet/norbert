@@ -26,12 +26,13 @@ import java.util.concurrent.Executors
 import partitioned.loadbalancer.{PartitionedLoadBalancerFactoryComponent, PartitionedLoadBalancerFactory}
 import partitioned.PartitionedNetworkClient
 import client.loadbalancer.{LoadBalancerFactoryComponent, LoadBalancerFactory}
-import com.linkedin.norbert.cluster.{Node, ClusterClient, ClusterClientComponent}
+import cluster.{ClusterClient, ClusterClientComponent}
 import protos.NorbertProtos
 import org.jboss.netty.channel.{ChannelPipelineFactory, Channels}
 import client.{ThreadPoolResponseHandler, ResponseHandlerComponent, NetworkClient, NetworkClientConfig}
 import com.linkedin.norbert.network.common.{CachedNetworkStatistics, CompositeCanServeRequestStrategy, SimpleBackoffStrategy, BaseNetworkClient}
 import java.util.{Map => JMap, UUID}
+
 import jmx.JMX
 import jmx.JMX.MBean
 import norbertutils._
@@ -53,8 +54,6 @@ abstract class BaseNettyNetworkClient(clientConfig: NetworkClientConfig) extends
     maxWaitingQueueSize = clientConfig.responseHandlerMaxWaitingQueueSize,
     avoidByteStringCopy = clientConfig.avoidByteStringCopy)
 
-  private val stats = CachedNetworkStatistics[Node, UUID](SystemClock, clientConfig.requestStatisticsWindow, 200L)
-
   private val handler = new ClientChannelHandler(
     clientName = clusterClient.clientName,
     serviceName = clusterClient.serviceName,
@@ -64,8 +63,7 @@ abstract class BaseNettyNetworkClient(clientConfig: NetworkClientConfig) extends
     outlierMultiplier = clientConfig.outlierMuliplier,
     outlierConstant = clientConfig.outlierConstant,
     responseHandler = responseHandler,
-    avoidByteStringCopy = clientConfig.avoidByteStringCopy,
-    stats = stats)
+    avoidByteStringCopy = clientConfig.avoidByteStringCopy)
 
   private val darkCanaryHandler = new DarkCanaryChannelHandler()
 
@@ -134,8 +132,7 @@ abstract class BaseNettyNetworkClient(clientConfig: NetworkClientConfig) extends
     closeChannelTimeMillis = clientConfig.closeChannelTimeMillis,
     staleRequestTimeoutMins = clientConfig.staleRequestTimeoutMins + 1,
     staleRequestCleanupFreqMins = clientConfig.staleRequestCleanupFrequenceMins,
-    errorStrategy = Some(channelPoolStrategy),
-    stats = stats)
+    errorStrategy = Some(channelPoolStrategy))
 
   val clusterIoClient = new NettyClusterIoClient(channelPoolFactory, strategy)
   clientConfig.darkCanaryServiceName match {
