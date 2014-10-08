@@ -215,28 +215,12 @@ class PendingRequestTimeTracker[KeyT](clock: Clock) {
 
 class RequestTimeTracker[KeyT](clock: Clock, interval: Long) {
   val finishedRequestTimeTracker = new FinishedRequestTimeTracker(clock, interval)
-  val finishedNettyTimeTracker = new FinishedRequestTimeTracker(clock, interval)
-  val pendingNettyTimeTracker = new PendingRequestTimeTracker[KeyT](clock)
   val pendingRequestTimeTracker = new PendingRequestTimeTracker[KeyT](clock)
   val queueTimeTracker = new QueueTimeTracker[KeyT](clock, interval)//TODO
   val totalRequestProcessingTimeTracker = new TotalRequestProcessingTime[KeyT](clock, interval)
 
   def beginRequest(key: KeyT, queueTime: Long = 0) {
     pendingRequestTimeTracker.beginRequest(key, queueTime)
-  }
-
-  def beginNetty(key: KeyT, queueTime: Long) {
-    pendingNettyTimeTracker.beginRequest(key, queueTime)
-  }
-
-  def endNetty(key: KeyT) {
-    pendingNettyTimeTracker.getStartTime(key).foreach { startTime =>
-    //over time we will retire this since this does not account for the amount of time the request
-    //was stuck in the queue
-      val queueTime = pendingNettyTimeTracker.getQueueTime(key)
-      finishedNettyTimeTracker.addTime(queueTime + clock.getCurrentTimeOffsetMicroseconds - startTime)
-    }
-    pendingNettyTimeTracker.endRequest(key)
   }
 
   def endRequest(key: KeyT) {
@@ -249,12 +233,10 @@ class RequestTimeTracker[KeyT](clock: Clock, interval: Long) {
       totalRequestProcessingTimeTracker.addTime(queueTime + clock.getCurrentTimeOffsetMicroseconds - startTime)
     }
     pendingRequestTimeTracker.endRequest(key)
-    endNetty(key)
   }
 
   def reset {
     finishedRequestTimeTracker.reset
-    pendingNettyTimeTracker.reset
     pendingRequestTimeTracker.reset
     queueTimeTracker.reset
     totalRequestProcessingTimeTracker.reset
