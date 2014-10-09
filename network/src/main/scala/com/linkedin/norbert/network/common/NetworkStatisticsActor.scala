@@ -49,9 +49,10 @@ case class CacheMaintainer[T](clock: Clock, ttl: Long, fn: () => T) {
   }
 }
 
-class CachedNetworkStatistics[GroupIdType, RequestIdType](private val stats: NetworkStatisticsTracker[GroupIdType, RequestIdType], clock: Clock, refreshInterval: Long) {
+class CachedNetworkStatistics[GroupIdType, RequestIdType](private val stats: NetworkStatisticsTracker[GroupIdType, RequestIdType], clock: Clock, refreshInterval: Long) extends Logging {
   val finishedArray = CacheMaintainer(clock, refreshInterval, () => stats.getFinishedArrays)
   val timings = CacheMaintainer(clock, refreshInterval, () => stats.getTimings)
+  val netty = CacheMaintainer(clock, refreshInterval, () => stats.getNettyTimings)
   val pendingTimings = CacheMaintainer(clock, refreshInterval, () => stats.getPendingTimings)
   val totalRequests = CacheMaintainer(clock, refreshInterval, () => stats.getTotalRequests )
   val finishedQueueTimings = CacheMaintainer(clock, refreshInterval, () => stats.getQueueTimings)
@@ -59,6 +60,14 @@ class CachedNetworkStatistics[GroupIdType, RequestIdType](private val stats: Net
 
   def beginRequest(groupId: GroupIdType, requestId: RequestIdType, queueTime: Long) {
     stats.beginRequest(groupId, requestId, queueTime)
+  }
+
+  def beginNetty(groupId: GroupIdType, requestId: RequestIdType, queueTime: Long) {
+    stats.beginNetty(groupId, requestId, queueTime)
+  }
+
+  def endNetty( groupId: GroupIdType, requestId: RequestIdType) {
+    stats.endNetty(groupId, requestId)
   }
 
   def endRequest(groupId: GroupIdType, requestId: RequestIdType) {
@@ -82,6 +91,7 @@ class CachedNetworkStatistics[GroupIdType, RequestIdType](private val stats: Net
       CacheMaintainer(clock, refreshInterval, () => {
         JoinedStatistics(
           finished = timings.get.map(calculate(_, p)).getOrElse(Map.empty),
+          nettyTimings = netty.get.map(calculate(_, p)).getOrElse(Map.empty),
           pending = pendingTimings.get.map(calculate(_, p)).getOrElse(Map.empty),
           totalRequests = () => totalRequests.get.getOrElse(Map.empty),
           rps = () => finishedArray.get.map(_.mapValues(rps(_))).getOrElse(Map.empty),
@@ -107,6 +117,7 @@ class CachedNetworkStatistics[GroupIdType, RequestIdType](private val stats: Net
 
 case class StatsEntry(percentile: Double, size: Int, total: Long)
 case class JoinedStatistics[K](finished: Map[K, StatsEntry],
+                               nettyTimings: Map[K, StatsEntry],
                                pending: Map[K, StatsEntry],
                                rps: () => Map[K, Int],
                                totalRequests: () => Map[K, Int],
@@ -115,6 +126,7 @@ case class JoinedStatistics[K](finished: Map[K, StatsEntry],
                                finishedResponse: Map[K, StatsEntry])
 
 private case class NetworkStatisticsTracker[GroupIdType, RequestIdType](clock: Clock, timeWindow: Long) extends Logging {
+
   private var timeTrackers: java.util.concurrent.ConcurrentMap[GroupIdType, RequestTimeTracker[RequestIdType]] =
     new java.util.concurrent.ConcurrentHashMap[GroupIdType, RequestTimeTracker[RequestIdType]]
 
@@ -124,6 +136,14 @@ private case class NetworkStatisticsTracker[GroupIdType, RequestIdType](clock: C
 
   def beginRequest(groupId: GroupIdType, requestId: RequestIdType, queueTime:Long = 0) {
     getTracker(groupId).beginRequest(requestId, queueTime)
+  }
+
+  def beginNetty(groupId: GroupIdType, requestId: RequestIdType, queueTime:Long = 0) {
+    getTracker(groupId).beginNetty(requestId, queueTime)
+  }
+
+  def endNetty(groupId: GroupIdType, requestId: RequestIdType) {
+    getTracker(groupId).endNetty(requestId)
   }
 
   def endRequest(groupId: GroupIdType, requestId: RequestIdType) {
@@ -142,8 +162,16 @@ private case class NetworkStatisticsTracker[GroupIdType, RequestIdType](clock: C
     getFinishedArrays.mapValues(array => array.map(_._2).sorted)
   }
 
+  def getNettyTimings = {
+    getNettyArrays.mapValues(array => array.map(_._2).sorted)
+  }
+
   def getFinishedArrays = {
     timeTrackers.toMap.mapValues( _.finishedRequestTimeTracker.getArray)
+  }
+
+  def getNettyArrays = {
+    timeTrackers.toMap.mapValues( _.finishedNettyTimeTracker.getArray)
   }
 
   def getTotalRequests = timeTrackers.toMap.mapValues( _.pendingRequestTimeTracker.getTotalNumRequests )
@@ -171,6 +199,12 @@ trait NetworkClientStatisticsMBean {
   def get95thTimes: JMap[Int, Double]
   def get99thTimes: JMap[Int, Double]
   def getHealthScoreTimings: JMap[Int, Double]
+
+  def getNettyMedianTimes: JMap[Int, Double]
+  def getNetty75thTimes: JMap[Int, Double]
+  def getNetty90thTimes: JMap[Int, Double]
+  def getNetty95thTimes: JMap[Int, Double]
+  def getNetty99thTimes: JMap[Int, Double]
 
   def getRPS: JMap[Int, Int]
 
@@ -207,6 +241,7 @@ class NetworkClientStatisticsMBeanImpl(clientName: Option[String], serviceName: 
 
   private def getPendingStats(p: Double) = stats.getStatistics(p).map(_.pending).getOrElse(Map.empty)
   private def getFinishedStats(p: Double) = stats.getStatistics(p).map(_.finished).getOrElse(Map.empty)
+  private def getNettyFinishedStats(p: Double) = stats.getStatistics(p).map(_.nettyTimings).getOrElse(Map.empty)
   private def toMillis(statsMetric: Double):Double = statsMetric/1000
   def getNumPendingRequests = toJMap(getPendingStats(0.5).map(kv => (kv._1.id, kv._2.size)))
 
@@ -224,6 +259,21 @@ class NetworkClientStatisticsMBeanImpl(clientName: Option[String], serviceName: 
 
   def get99thTimes =
     toJMap(getFinishedStats(0.99).map(kv => (kv._1.id, toMillis(kv._2.percentile))))
+
+  def getNettyMedianTimes =
+    toJMap(getNettyFinishedStats(0.5).map(kv => (kv._1.id, toMillis(kv._2.percentile))))
+
+  def getNetty75thTimes =
+    toJMap(getNettyFinishedStats(0.75).map(kv => (kv._1.id, toMillis(kv._2.percentile))))
+
+  def getNetty90thTimes =
+    toJMap(getNettyFinishedStats(0.90).map(kv => (kv._1.id, toMillis(kv._2.percentile))))
+
+  def getNetty95thTimes =
+    toJMap(getNettyFinishedStats(0.95).map(kv => (kv._1.id, toMillis(kv._2.percentile))))
+
+  def getNetty99thTimes =
+    toJMap(getNettyFinishedStats(0.99).map(kv => (kv._1.id, toMillis(kv._2.percentile))))
 
   def getHealthScoreTimings = {
     val s = stats.getStatistics(0.5)
