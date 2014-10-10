@@ -61,7 +61,6 @@ import com.linkedin.norbert.network.client.NetworkClientConfig
 class DarkCanaryChannelHandler extends Logging {
   private val requestMap = new JConcurrentHashMap[UUID, Request[Any,Any]]()
   private val mirroredHosts= new JConcurrentHashMap[Int, Node]()
-  mirroredHosts.put(5, new Node(5, "localhost:9998", true))
   private final val darkCanaryClientNameSuffix = "DarkCanary"
   private var clusterIoClient: Option[ClusterIoClientComponent#ClusterIoClient] = None
   private var clusterClient : Option[ClusterClient] = None
@@ -115,7 +114,6 @@ class DarkCanaryChannelHandler extends Logging {
               nodes.foreach { node =>
                 mirroredHosts.put(node.id, node)
               }
-              mirroredHosts.put(5, new Node(5, "localhost:9998", true))
 
             }
           }
