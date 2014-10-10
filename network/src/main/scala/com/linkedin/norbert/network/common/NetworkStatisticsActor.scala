@@ -220,6 +220,12 @@ trait NetworkClientStatisticsMBean {
   def getCluster99th: Double
   def getClusterHealthScoreTiming: Double
 
+  def getClusterNettyMedianTime: Double
+  def getClusterNetty75thTimes: Double
+  def getClusterNetty90th: Double
+  def getClusterNetty95th: Double
+  def getClusterNetty99th: Double
+
   def getClusterTotalRequests: Int
 
   def reset
@@ -311,6 +317,16 @@ class NetworkClientStatisticsMBeanImpl(clientName: Option[String], serviceName: 
   def getCluster95th = toMillis(averagePercentiles(getFinishedStats(0.95)))
 
   def getCluster99th = toMillis(averagePercentiles(getFinishedStats(0.99)))
+
+  def getClusterNettyMedianTime = toMillis(averagePercentiles(getNettyFinishedStats(0.5)))
+
+  def getClusterNetty75thTimes = toMillis(averagePercentiles(getNettyFinishedStats(0.75)))
+
+  def getClusterNetty90th = toMillis(averagePercentiles(getNettyFinishedStats(0.90)))
+
+  def getClusterNetty95th = toMillis(averagePercentiles(getNettyFinishedStats(0.95)))
+
+  def getClusterNetty99th = toMillis(averagePercentiles(getNettyFinishedStats(0.99)))
 
   import scala.collection.JavaConversions._
 
