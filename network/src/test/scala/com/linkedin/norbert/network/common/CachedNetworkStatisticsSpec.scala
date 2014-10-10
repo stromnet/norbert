@@ -18,13 +18,6 @@ package network
 package common
 
 import org.specs.SpecificationWithJUnit
-import org.specs.mock.Mockito
-import client.NetworkClient
-import client.loadbalancer.{LoadBalancerFactory, LoadBalancer, LoadBalancerFactoryComponent}
-import server._
-import cluster.{Node, ClusterClientComponent, ClusterClient}
-import com.google.protobuf.Message
-import scala.collection.mutable.MutableList
 import com.linkedin.norbert.norbertutils.MockClock
 
 class CachedNetworkStatisticsSpec extends SpecificationWithJUnit {

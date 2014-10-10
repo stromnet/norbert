@@ -26,8 +26,8 @@ import com.google.protobuf.Message
 import java.util.concurrent.{TimeoutException, TimeUnit}
 import java.net.InetSocketAddress
 import norbertutils.MockClock
-import com.linkedin.norbert.network.common.CachedNetworkStatistics
-import com.linkedin.norbert.cluster.Node
+import common.CachedNetworkStatistics
+import cluster.Node
 import java.util.UUID
 
 class ChannelPoolSpec extends SpecificationWithJUnit with Mockito {

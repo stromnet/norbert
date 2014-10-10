@@ -19,7 +19,6 @@ package jmx
 import norbertutils._
 import collection.JavaConversions
 import java.util.concurrent.atomic.AtomicInteger
-import com.linkedin.norbert.logging.Logging
 
 // Threadsafe. Writers should always complete more or less instantly. Readers work via copy-on-write.
 class FinishedRequestTimeTracker(clock: Clock, interval: Long) {
