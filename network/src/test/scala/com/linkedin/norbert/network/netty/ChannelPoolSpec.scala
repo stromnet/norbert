@@ -26,24 +26,19 @@ import com.google.protobuf.Message
 import java.util.concurrent.{TimeoutException, TimeUnit}
 import java.net.InetSocketAddress
 import norbertutils.MockClock
-import com.linkedin.norbert.network.common.CachedNetworkStatistics
-import com.linkedin.norbert.cluster.Node
-import java.util.UUID
 
 class ChannelPoolSpec extends SpecificationWithJUnit with Mockito {
   val channelGroup = mock[ChannelGroup]
   val bootstrap = mock[ClientBootstrap]
   val address = new InetSocketAddress("127.0.0.1", 31313)
   val mockClock = new MockClock
-  val statsActor = CachedNetworkStatistics[Node, UUID](mockClock, 1000L, 200L)
 
   val channelPool = new ChannelPool(address, 1, 100, 100, bootstrap, channelGroup,
     closeChannelTimeMillis = 10000,
     staleRequestTimeoutMins = 1,
     staleRequestCleanupFreqMins = 1,
     errorStrategy = None,
-    clock = mockClock,
-    stats = statsActor)
+    clock = mockClock)
 
   "ChannelPool" should {
     "close the ChannelGroup when close  is called" in {
@@ -163,8 +158,8 @@ class ChannelPoolSpec extends SpecificationWithJUnit with Mockito {
         staleRequestTimeoutMins = 1,
         staleRequestCleanupFreqMins = 1,
         errorStrategy = None,
-        clock = mockClock,
-        statsActor)
+        clock = mockClock)
+
       val channel = mock[Channel]
       val future = new TestChannelFuture(channel, true)
 
@@ -211,7 +206,7 @@ class ChannelPoolSpec extends SpecificationWithJUnit with Mockito {
     "properly handle a failed write" in {
       val channel = mock[Channel]
       var either: Either[Throwable, Any] = null
-      val request = spy(Request(null, new Node(0,"",true), null, null, Some((e: Either[Throwable, Any]) => either = e)))
+      val request = spy(Request(null, null, null, null, Some((e: Either[Throwable, Any]) => either = e)))
       request.timestamp returns System.currentTimeMillis + 10000
       channel.isConnected returns true
       val openFuture = new TestChannelFuture(channel, true)
@@ -231,7 +226,7 @@ class ChannelPoolSpec extends SpecificationWithJUnit with Mockito {
     "invoke callback when remote exception encountered" in {
       val channel = mock[Channel]
       var either: Either[Throwable, Any] = null
-      val request = spy(Request(null, new Node(0,"",true), null, null, Some((e: Either[Throwable, Any]) => either = e)))
+      val request = spy(Request(null, null, null, null, Some((e: Either[Throwable, Any]) => either = e)))
       request.timestamp returns System.currentTimeMillis
       channel.isConnected returns true
       val openFuture = new TestChannelFuture(channel, true)
@@ -250,7 +245,7 @@ class ChannelPoolSpec extends SpecificationWithJUnit with Mockito {
 
     "not write queued requests if the request timed out" in {
       val channel = mock[Channel]
-      val goodRequest = spy(new Request(null, new Node(0,"",true), null, null, Some((e: Either[Throwable, Any]) => null: Unit)))
+      val goodRequest = spy(new Request(null, null, null, null, Some((e: Either[Throwable, Any]) => null: Unit)))
 
       var either: Either[Throwable, Any] = null
       val badRequest = spy(new Request(null, null, null, null, Some((e: Either[Throwable, Any]) => either = e)))

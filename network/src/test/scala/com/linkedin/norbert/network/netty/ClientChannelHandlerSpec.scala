@@ -10,9 +10,7 @@ import protos.NorbertProtos.NorbertMessage.Status
 import protos.NorbertProtos
 import cluster.Node
 import java.net.{SocketAddress}
-import com.linkedin.norbert.network.common.{CachedNetworkStatistics, SampleMessage}
-import java.util.UUID
-import com.linkedin.norbert.norbertutils.MockClock
+import common.SampleMessage
 
 /**
  * Test to cover association of RequestAccess with remote exception
@@ -20,8 +18,6 @@ import com.linkedin.norbert.norbertutils.MockClock
 class ClientChannelHandlerSpec extends SpecificationWithJUnit with Mockito with SampleMessage {
 
   val responseHandler = mock[ResponseHandler]
-  val mockClock = new MockClock
-  val statsActor = CachedNetworkStatistics[Node, UUID](mockClock, 1000L, 200L)
   val clientChannelHandler = new ClientChannelHandler(clientName = Some("booClient"),
     serviceName = "booService",
     staleRequestTimeoutMins = 3000,
@@ -30,9 +26,7 @@ class ClientChannelHandlerSpec extends SpecificationWithJUnit with Mockito with 
     outlierMultiplier = 2,
     outlierConstant = 2,
     responseHandler = responseHandler,
-    avoidByteStringCopy = true,
-    stats = statsActor
-  )
+    avoidByteStringCopy = true)
 
   def sendMockRequest(ctx: ChannelHandlerContext, request: Request[Ping, Ping]) {
       val writeEvent = mock[MessageEvent]

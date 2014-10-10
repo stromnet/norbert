@@ -18,16 +18,12 @@ package com.linkedin.norbert.network
 import java.util.UUID
 import com.linkedin.norbert.cluster.{ClusterException, Node}
 import scala.collection.mutable.Map
-import com.linkedin.norbert.logging.Logging
-import com.linkedin.norbert.network.common.CachedNetworkStatistics
-import com.linkedin.norbert.norbertutils.SystemClockComponent
-import com.linkedin.norbert.network.netty.ClientChannelHandler
 
 object Request {
   def apply[RequestMsg, ResponseMsg](message: RequestMsg, node: Node,
                                      inputSerializer: InputSerializer[RequestMsg, ResponseMsg], outputSerializer: OutputSerializer[RequestMsg, ResponseMsg],
                                      callback: Option[Either[Throwable, ResponseMsg] => Unit], retryAttempt: Int = 0): Request[RequestMsg, ResponseMsg] = {
-    new Request(message, node,  inputSerializer, outputSerializer, callback, retryAttempt)
+    new Request(message, node, inputSerializer, outputSerializer, callback, retryAttempt)
   }
 }
 
@@ -42,21 +38,12 @@ class Request[RequestMsg, ResponseMsg](val message: RequestMsg, val node: Node,
     inputSerializer.requestName
   }
 
-  // serializer
   def requestBytes: Array[Byte] = outputSerializer.requestToBytes(message)
 
   def addHeader(key: String, value: String) = headers += (key -> value)
 
   def onFailure(exception: Throwable) {
     if(!callback.isEmpty) callback.get(Left(exception))
-  }
-
-  def endNettyTiming(stats: CachedNetworkStatistics[Node, UUID]) = {
-    stats.endNetty(node, id)
-  }
-
-  def startNettyTiming(stats : CachedNetworkStatistics[Node, UUID]) = {
-    stats.beginNetty(node, id, 0)
   }
 
   def onSuccess(bytes: Array[Byte]) {

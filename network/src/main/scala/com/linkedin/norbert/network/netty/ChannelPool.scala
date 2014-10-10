@@ -35,6 +35,7 @@ import com.linkedin.norbert.network.common.{CachedNetworkStatistics, BackoffStra
 import java.util.UUID
 import scala.Some
 
+
 class ChannelPoolClosedException extends Exception
 
 class ChannelPoolFactory(maxConnections: Int, openTimeoutMillis: Int, writeTimeoutMillis: Int,
@@ -42,8 +43,7 @@ class ChannelPoolFactory(maxConnections: Int, openTimeoutMillis: Int, writeTimeo
                          errorStrategy: Option[BackoffStrategy],
                          staleRequestTimeoutMins: Int,
                          staleRequestCleanupFreqMins: Int,
-                         closeChannelTimeMillis: Long,
-                         stats: CachedNetworkStatistics[Node, UUID]) {
+                         closeChannelTimeMillis: Long) {
 
   def newChannelPool(address: InetSocketAddress): ChannelPool = {
     val group = new DefaultChannelGroup("norbert-client [%s]".format(address))
@@ -57,8 +57,7 @@ class ChannelPoolFactory(maxConnections: Int, openTimeoutMillis: Int, writeTimeo
       staleRequestTimeoutMins = staleRequestTimeoutMins,
       staleRequestCleanupFreqMins = staleRequestCleanupFreqMins,
       errorStrategy = errorStrategy,
-      clock = SystemClock,
-      stats)
+      clock = SystemClock)
   }
 
   def shutdown: Unit = {
@@ -73,8 +72,7 @@ class ChannelPool(address: InetSocketAddress, maxConnections: Int, openTimeoutMi
                   staleRequestTimeoutMins: Int,
                   staleRequestCleanupFreqMins: Int,
                   val errorStrategy: Option[BackoffStrategy],
-                  clock: Clock,
-                  stats: CachedNetworkStatistics[Node, UUID]) extends Logging {
+                  clock: Clock) extends Logging {
 
   case class PoolEntry(channel: Channel, creationTime: Long) {
     def age = System.currentTimeMillis() - creationTime
@@ -149,6 +147,7 @@ class ChannelPool(address: InetSocketAddress, maxConnections: Int, openTimeoutMi
       case Some(poolEntry) =>
         writeRequestToChannel(request, poolEntry.channel)
         checkinChannel(poolEntry)
+
       case None =>
         waitingWrites.offer(request)
         openChannel(request)
@@ -257,17 +256,15 @@ class ChannelPool(address: InetSocketAddress, maxConnections: Int, openTimeoutMi
   private def writeRequestToChannel(request: Request[_, _], channel: Channel) {
     log.debug("Writing to %s: %s".format(channel, request))
     requestsSent.incrementAndGet
-    request.startNettyTiming(stats)
     channel.write(request).addListener(new ChannelFutureListener {
-      def operationComplete(writeFuture: ChannelFuture) = {
-        request.endNettyTiming(stats)
-        if (!writeFuture.isSuccess) {
-          // Take the node out of rotation for a bit
-          log.warn("IO exception for " + request.node + ", marking node offline")
-          errorStrategy.foreach(_.notifyFailure(request.node))
-          channel.close
-          request.onFailure(writeFuture.getCause)
-        }
+      def operationComplete(writeFuture: ChannelFuture) = if (!writeFuture.isSuccess) {
+        // Take the node out of rotation for a bit
+        log.warn("IO exception for " + request.node + ", marking node offline")
+        errorStrategy.foreach(_.notifyFailure(request.node))
+        channel.close
+
+
+        request.onFailure(writeFuture.getCause)
       }
     })
   }
