@@ -92,7 +92,7 @@ Number 1 is most commonly the case that an administrator has specified the node 
 
 To set up a cluster use the `addNode` and `removeNode` methods on the `Cluster` trait. These methods create Znodes in ZooKeeper which store the node's hostname/port and partition mapping metadata. Customer tools can be written using these methods in your own code.
 
-In the examples module there is a command line program for defining a cluster which is not currently functional, `NorbertClusterClientMain`. Its intended functionality is that at the prompt you could type
+In the examples module there is a command line program for defining a cluster, `NorbertClusterClientMain`. At the prompt you can type:
 
 * nodes - lists all the nodes in the cluster
 * join nodeId hostname port partitionId1 partitionId2 ... - adds a new node to the cluster with the given id, host, port and partitions ids
