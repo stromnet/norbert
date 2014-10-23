@@ -59,6 +59,8 @@ run in Norbert using the command: `run-main (filename) "norbert" "localhost:2181
  `com.linkedin.norbert.cluster.NorbertClusterClientMain`
  `com.linkedin.norbert.network.NorbertNetworkClientMain`
  `com.linkedin.norbert.javacompat.network.NorbertJavaNetworkClientMain`
+ 
+These examples illustrate many of the below code snippets and explanations:
 
 
 Using Norbert for cluster management
