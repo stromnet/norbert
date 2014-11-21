@@ -81,6 +81,17 @@ trait NetworkServer extends Logging {
     bindNode(node, true)
   }
 
+  def bindOrCreateByUrl(hostname: String, port: Int): Unit = {
+    try {
+      bindByUrl(hostname, port)
+    } catch {
+      case ex:InvalidNodeException =>
+        /* This node doesn't exist so we need to create it */
+        clusterClient.addNodeByUrl(hostname, port)
+        bindByUrl(hostname, port)
+    }
+  }
+
   /**
    * Binds the network server instance to the wildcard address and the port of the <code>Node</code> identified
    * by the provided nodeId and automatically marks the <code>Node</code> available in the cluster.  A
