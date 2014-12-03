@@ -182,9 +182,9 @@ trait ClusterClient extends Logging {
     val url = hostname + ":" + port
     var id =  nextNodeId
     var node: Node = null
-    val pbuilder = patitionBuilder match {
+    val pbuilder = partitionBuilder match {
       case Some(f) => f
-      case None => (:Int => Set.empty[Int])
+      case None => {_:Int => Set.empty[Int]}
     }
     while (node == null) {
       try {
