@@ -81,13 +81,13 @@ trait NetworkServer extends Logging {
     bindNode(node, markAvailable)
   }
 
-  def bindOrCreateByUrl(hostname: String, port: Int): Unit = {
+  def bindOrCreateByUrl(hostname: String, port: Int, partitionBuilder:Option[Int => Set[Int]] = None): Unit = {
     try {
       bindByUrl(hostname, port)
     } catch {
       case ex:InvalidNodeException =>
         /* This node doesn't exist so we need to create it */
-        clusterClient.addNodeByUrl(hostname, port)
+        clusterClient.addNodeByUrl(hostname, port, partitionBuilder)
         bindByUrl(hostname, port)
     }
   }

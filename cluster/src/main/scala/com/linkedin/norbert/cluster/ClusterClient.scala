@@ -178,20 +178,24 @@ trait ClusterClient extends Logging {
    * @throws ClusterDisconnectedException thrown if the cluster is disconnected when the method is called
    * @throws InvalidNodeException thrown if there is an error adding the new node to the cluster metadata
    */
-  def addNodeByUrl(hostname: String, port:Int): Node = {
+   def addNodeByUrl(hostname: String, port:Int, partitionBuilder:Option[Int => Set[Int]] = None): Node = {
     val url = hostname + ":" + port
     var id =  nextNodeId
     var node: Node = null
+    val pbuilder = patitionBuilder match {
+      case Some(f) => f
+      case None => (:Int => Set.empty[Int])
+    }
     while (node == null) {
       try {
-        node = addNode(id, url)
+        node = addNode(id, url, pbuilder(id))
       } catch {
         case _:InvalidNodeException =>
       }
       val nid = nextNodeId
       if (nid == id) {
         /* there was a problem with the id, try one last time and return that error */
-        node = addNode(id, url)
+        node = addNode(id, url, pbuilder(id))
       }
       id = nid
     }
