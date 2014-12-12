@@ -36,10 +36,14 @@ object JMX extends Logging {
   val map = collection.mutable.Map.empty[String, Int]
 
   def getUniqueName(name: String): String = synchronized {
-    val id = map.getOrElse(name, -1)
-    val unique = if(id == -1) name else name + "-" + id
-    map + (name -> (id + 1))
-    unique
+    //TODO switch this to concurrent hash map but that might entail a lot more changes
+    //which might not play nice with scala.  
+    synchronized {
+      val id = map.getOrElse(name, -1)
+      val unique = if(id == -1) name else name + "-" + id
+      map + (name -> (id + 1))
+      unique
+    }
   }
 
 
