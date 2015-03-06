@@ -63,7 +63,7 @@ class NetworkClientConfig {
 
   var avoidByteStringCopy = NetworkDefaults.AVOID_BYTESTRING_COPY
   var darkCanaryServiceName: Option[String] = None
-  var darkCanaryUpstreamCallback: Option[(Boolean,UUID,Object)=>Unit] = None
+  var darkCanaryUpstreamCallback: Option[(Boolean, UUID, Object)=>Unit] = None
   var retryStrategy:Option[RetryStrategy] = None 
   var duplicatesOk:Boolean = false
 }

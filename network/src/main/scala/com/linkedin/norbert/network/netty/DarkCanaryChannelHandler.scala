@@ -158,10 +158,13 @@ class DarkCanaryChannelHandler extends Logging {
                     None,
                     0)
 
-                  if (!upstreamCallback.isEmpty) {
-                    hostRequestMap.put(request.id, request)
-                    hostToMirror.put(request.id, newRequest.id)
-                    mirrorToHost.put(newRequest.id, request.id)
+                  upstreamCallback match {
+                    case Some(callback) => {
+                      hostRequestMap.put(request.id, request)
+                      hostToMirror.put(request.id, newRequest.id)
+                      mirrorToHost.put(newRequest.id, request.id)
+                    }
+                    case None =>
                   }
 
                   mirrorRequestMap.put(newRequest.id, newRequest)
@@ -195,13 +198,16 @@ class DarkCanaryChannelHandler extends Logging {
               case request: Request[Any,Any] =>  {
                 mirrorRequestMap.remove(requestId)
                 // Begin upstreamCallback
-                if (!upstreamCallback.isEmpty) {
-                  mirrorToHost.remove(requestId) match {
-                    case hostRequestId => {
-                      upstreamCallback.get(true, hostRequestId, message)
+                upstreamCallback match {
+                  case Some(callback) => {
+                    mirrorToHost.remove(requestId) match {
+                      case hostRequestId => {
+                        callback(true, hostRequestId, message)
+                      }
+                      case null => log.error("Could not find hostRequestId for darkCanaryRequestId: %s".format(requestId.toString))
                     }
-                    case null => log.error("Could not find hostRequestId for darkRequestId: %s".format(requestId.toString))
                   }
+                  case None =>
                 }
                 // End upstreamCallback
                 if (message.getStatus == NorbertProtos.NorbertMessage.Status.OK) {
@@ -224,14 +230,17 @@ class DarkCanaryChannelHandler extends Logging {
               }
               case _ => {
                 // Begin upstreamCallback
-                if (!upstreamCallback.isEmpty) {
-                  hostRequestMap.remove(requestId) match {
-                    case request: Request[Any,Any] => {
-                      hostToMirror.remove(requestId)
-                      upstreamCallback.get(false, requestId, message)
+                upstreamCallback match {
+                  case Some(callback) => {
+                    hostRequestMap.remove(requestId) match {
+                      case request: Request[Any,Any] => {
+                        hostToMirror.remove(requestId)
+                        callback(false, requestId, message)
+                      }
+                      case null => // Not a request from a host with a mirror
                     }
-                    case null => // Not a request from a host with a mirror
                   }
+                  case None =>
                 }
                 // End upstreamCallback
                 // This is not a mirrored request, Propagate the message upstream.
